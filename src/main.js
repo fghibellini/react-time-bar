@@ -2,8 +2,14 @@
 var React = require("react");
 var _ = require("lodash");
 
-import { timeStrToMinutes } from './time-functions';
+import { timeStrToMinutes, minutesToStr } from './time-functions';
 import { TimeBar } from './time-bar';
+
+function roundToQuarters(timeStr) {
+    var minutes = timeStrToMinutes(timeStr);
+    var rounded =  minutes - (minutes % 15);
+    return minutesToStr(rounded);
+}
 
 var intervals = [
     { id: 0, from: "10:00", to: "11:00" },
@@ -19,9 +25,11 @@ function refresh() {
         var minTime = intervalBefore ? intervalBefore.to : "8:00";
 
         var timeInMinutes = timeStrToMinutes(time);
-        interval.from = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
-                        timeInMinutes < timeStrToMinutes(minTime) ? minTime :
-                        time;
+        var newTime = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
+                      timeInMinutes < timeStrToMinutes(minTime) ? minTime :
+                      time;
+
+        interval.from = roundToQuarters(newTime);
 
         refresh();
     }
@@ -33,13 +41,14 @@ function refresh() {
         var maxTime = nextInterval ? nextInterval.from : "18:00";
 
         var timeInMinutes = timeStrToMinutes(time);
-        interval.to = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
-                        timeInMinutes < timeStrToMinutes(minTime) ? minTime :
-                        time;
+        var newTime = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
+                      timeInMinutes < timeStrToMinutes(minTime) ? minTime :
+                      time;
+
+        interval.to = roundToQuarters(newTime);
 
         refresh();
     }
-
 
     React.render(
         <TimeBar min={"8:00"}

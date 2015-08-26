@@ -41,30 +41,41 @@ export var TimeBar = React.createClass({
         };
     },
     componentDidMount: function() {
-        window.document.addEventListener("mousemove", e => {
-            if (this.state.dragging) {
-                this.drag(e.clientX);
-            }
-        });
-
-        window.document.addEventListener("mouseup", () => {
-            if (this.state.dragging) {
-                this.dragEnd();
-            }
-        });
     },
     dragStart: function(intervalId, side, initialXCoord, timeBeforeDrag) {
         setCursorToWholeDocument(window.document, side === "left" ? "w-resize" : "e-resize");
+
+        var onMouseMove = e => {
+            if (this.state.dragging) {
+                this.drag(e.clientX);
+            }
+        };
+        window.document.addEventListener("mousemove", onMouseMove);
+
+        var onMouseUp = () => {
+            if (this.state.dragging) {
+                this.dragEnd();
+            }
+        };
+        window.document.addEventListener("mouseup", onMouseUp);
+
         this.setState({
             dragging: {
                 intervalId: intervalId,
                 side: side,
                 timeBeforeDrag: timeBeforeDrag,
-                initialXCoord: initialXCoord
+                initialXCoord: initialXCoord,
+                eventHandlers: {
+                    mousemove: onMouseMove,
+                    mouseup: onMouseUp
+                }
             }
         });
     },
     dragEnd: function() {
+        var { mousemove, mouseup } = this.state.dragging.eventHandlers;
+        window.document.removeEventListener("mousemove", mousemove);
+        window.document.removeEventListener("mouseup", mouseup);
         unsetCursorToWholeDocument(window.document);
         this.setState({
             dragging: null

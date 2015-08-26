@@ -53,6 +53,12 @@
 	var React = __webpack_require__(8);
 	var _ = __webpack_require__(164);
 
+	function roundToQuarters(timeStr) {
+	    var minutes = (0, _timeFunctions.timeStrToMinutes)(timeStr);
+	    var rounded = minutes - minutes % 15;
+	    return (0, _timeFunctions.minutesToStr)(rounded);
+	}
+
 	var intervals = [{ id: 0, from: "10:00", to: "11:00" }, { id: 1, from: "12:00", to: "15:00" }];
 
 	function refresh() {
@@ -68,7 +74,9 @@
 	        var minTime = intervalBefore ? intervalBefore.to : "8:00";
 
 	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(time);
-	        interval.from = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
+	        var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
+
+	        interval.from = roundToQuarters(newTime);
 
 	        refresh();
 	    }
@@ -84,7 +92,9 @@
 	        var maxTime = nextInterval ? nextInterval.from : "18:00";
 
 	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(time);
-	        interval.to = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
+	        var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
+
+	        interval.to = roundToQuarters(newTime);
 
 	        refresh();
 	    }
@@ -203,33 +213,46 @@
 	            dragging: null
 	        };
 	    },
-	    componentDidMount: function componentDidMount() {
+	    componentDidMount: function componentDidMount() {},
+	    dragStart: function dragStart(intervalId, side, initialXCoord, timeBeforeDrag) {
 	        var _this = this;
 
-	        window.document.addEventListener("mousemove", function (e) {
+	        (0, _globalCursor.setCursorToWholeDocument)(window.document, side === "left" ? "w-resize" : "e-resize");
+
+	        var onMouseMove = function onMouseMove(e) {
 	            if (_this.state.dragging) {
 	                _this.drag(e.clientX);
 	            }
-	        });
+	        };
+	        window.document.addEventListener("mousemove", onMouseMove);
 
-	        window.document.addEventListener("mouseup", function () {
+	        var onMouseUp = function onMouseUp() {
 	            if (_this.state.dragging) {
 	                _this.dragEnd();
 	            }
-	        });
-	    },
-	    dragStart: function dragStart(intervalId, side, initialXCoord, timeBeforeDrag) {
-	        (0, _globalCursor.setCursorToWholeDocument)(window.document, side === "left" ? "w-resize" : "e-resize");
+	        };
+	        window.document.addEventListener("mouseup", onMouseUp);
+
 	        this.setState({
 	            dragging: {
 	                intervalId: intervalId,
 	                side: side,
 	                timeBeforeDrag: timeBeforeDrag,
-	                initialXCoord: initialXCoord
+	                initialXCoord: initialXCoord,
+	                eventHandlers: {
+	                    mousemove: onMouseMove,
+	                    mouseup: onMouseUp
+	                }
 	            }
 	        });
 	    },
 	    dragEnd: function dragEnd() {
+	        var _state$dragging$eventHandlers = this.state.dragging.eventHandlers;
+	        var mousemove = _state$dragging$eventHandlers.mousemove;
+	        var mouseup = _state$dragging$eventHandlers.mouseup;
+
+	        window.document.removeEventListener("mousemove", mousemove);
+	        window.document.removeEventListener("mouseup", mouseup);
 	        (0, _globalCursor.unsetCursorToWholeDocument)(window.document);
 	        this.setState({
 	            dragging: null
