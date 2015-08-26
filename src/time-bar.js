@@ -139,7 +139,7 @@ export var TimeBar = React.createClass({
             };
 
             return (<div className={["interval", int.className].join(" ")}
-                         key={intIndex}
+                         key={int.id}
                          onMouseDown={intervalDragStart}
                          style={{ left: start, width: end - start }}>
                 <div className="interval-handle interval-handle-left"

@@ -421,7 +421,7 @@
 	            return React.createElement(
 	                "div",
 	                { className: ["interval", int.className].join(" "),
-	                    key: intIndex,
+	                    key: int.id,
 	                    onMouseDown: intervalDragStart,
 	                    style: { left: start, width: end - start } },
 	                React.createElement("div", { className: "interval-handle interval-handle-left",
