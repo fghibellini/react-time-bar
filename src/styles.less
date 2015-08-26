@@ -1,0 +1,54 @@
+
+@handle-width:2px;
+@bar-height:30px;
+@bar-color: #eeeeee;
+@border-color: #cccccc;
+
+.user-select(@select) {
+    -webkit-user-select: @select;
+    -moz-user-select: @select;
+    -webkit-user-select: @select;
+    -ms-user-select: @select;
+    user-select: @select;
+}
+
+.time-bar {
+    position: relative;
+    background: @bar-color;
+    display: inline-block;
+    box-sizing: border-box;
+    height: @bar-height;
+    cursor: normal;
+    .user-select(none);
+}
+
+.interval {
+    position: absolute;
+    display: inline-block;
+    box-sizing: border-box;
+    top: 0;
+    height: 100%;
+    border: 2px dashed @border-color;
+    .user-select(none);
+}
+
+.interval-handle {
+    position: absolute;
+    display: inline-block;
+    box-sizing: border-box;
+    top: 0;
+    height: 100%;
+    width: @handle-width;
+    background: @border-color;
+    .user-select(none);
+}
+
+.interval-handle-left {
+    left: -@handle-width;
+    cursor: w-resize;
+}
+
+.interval-handle-right {
+    right: -@handle-width;
+    cursor: e-resize;
+}
