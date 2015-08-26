@@ -74,81 +74,109 @@
 
 	var intervals = [{ id: 0, from: "10:00", to: "11:00", className: "highlighted" }, { id: 1, from: "12:00", to: "15:00" }];
 
+	function updateStart(intervalId, time) {
+	    var interval = _.find(intervals, function (i) {
+	        return i.id === intervalId;
+	    });
+	    var intervalBefore = _.find(intervals, function (__, index) {
+	        return index === intervals.length - 1 ? false : intervals[index + 1].id === intervalId;
+	    });
+	    var maxTime = addMinutes(interval.to, -30);
+	    var minTime = intervalBefore ? intervalBefore.to : "8:00";
+
+	    var rounded = roundToHalfHours(time);
+	    var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(rounded);
+	    var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : rounded;
+
+	    interval.from = newTime;
+
+	    refresh();
+	}
+
+	function updateEnd(intervalId, time) {
+	    var interval = _.find(intervals, function (i) {
+	        return i.id === intervalId;
+	    });
+	    var nextInterval = _.find(intervals, function (__, index) {
+	        return index === 0 ? false : intervals[index - 1].id === intervalId;
+	    });
+	    var minTime = addMinutes(interval.from, 30);;
+	    var maxTime = nextInterval ? nextInterval.from : "18:00";
+
+	    var rounded = roundToHalfHours(time);
+	    var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(rounded);
+	    var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : rounded;
+
+	    interval.to = newTime;
+
+	    refresh();
+	}
+
+	function onIntervalClick(intervalId, e) {
+	    var interval = _.find(intervals, function (i) {
+	        return i.id === intervalId;
+	    });
+	    if (interval.className) {
+	        delete interval.className;
+	    } else {
+	        interval.className = "highlighted";
+	    }
+	    refresh();
+	}
+
+	function onIntervalDrag(intervalId, newIntervalStart) {
+	    var interval = _.find(intervals, function (i) {
+	        return i.id === intervalId;
+	    });
+	    var intervalBefore = _.find(intervals, function (__, index) {
+	        return index === intervals.length - 1 ? false : intervals[index + 1].id === intervalId;
+	    });
+	    var nextInterval = _.find(intervals, function (__, index) {
+	        return index === 0 ? false : intervals[index - 1].id === intervalId;
+	    });
+	    var minTime = intervalBefore ? intervalBefore.to : "8:00";
+	    var maxEndTime = nextInterval ? nextInterval.from : "18:00";
+	    var intervalDuration = subTimes(interval.to, interval.from);
+	    var maxTime = addMinutes(maxEndTime, -intervalDuration);
+
+	    var rounded = roundToHalfHours(newIntervalStart);
+	    var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(rounded);
+	    var newIntervalStartBounded = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : rounded;
+
+	    var delta = subTimes(newIntervalStartBounded, interval.from);
+	    interval.to = addMinutes(interval.to, delta);
+	    interval.from = newIntervalStartBounded;
+	    refresh();
+	}
+
+	var toggleFlag = false;
+	function modifyLength() {
+	    intervals[0].to = addMinutes(intervals[0].to, toggleFlag ? 30 : -30);
+	    toggleFlag = !toggleFlag;
+	    refresh();
+	}
+
+	var int1 = null;
+	function toggleLenghChanger() {
+	    if (int1) {
+	        clearInterval(int1);
+	        int1 = 0;
+	    } else {
+	        int1 = setInterval(modifyLength, 1000);
+	    }
+	}
+	window.document.getElementById("run-size").addEventListener("click", toggleLenghChanger);
+
+	window.document.getElementById("run-remove").addEventListener("click", function () {
+	    setTimeout(function () {
+	        intervals.splice(0, 1);
+	        refresh();
+	    }, 2000);
+	});
+
 	function refresh() {
 
-	    function updateStart(intervalId, time) {
-	        var interval = _.find(intervals, function (i) {
-	            return i.id === intervalId;
-	        });
-	        var intervalBefore = _.find(intervals, function (__, index) {
-	            return index === intervals.length - 1 ? false : intervals[index + 1].id === intervalId;
-	        });
-	        var maxTime = interval.to;
-	        var minTime = intervalBefore ? intervalBefore.to : "8:00";
-
-	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(time);
-	        var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
-
-	        interval.from = roundToHalfHours(newTime);
-
-	        refresh();
-	    }
-
-	    function updateEnd(intervalId, time) {
-	        var interval = _.find(intervals, function (i) {
-	            return i.id === intervalId;
-	        });
-	        var nextInterval = _.find(intervals, function (__, index) {
-	            return index === 0 ? false : intervals[index - 1].id === intervalId;
-	        });
-	        var minTime = interval.from;
-	        var maxTime = nextInterval ? nextInterval.from : "18:00";
-
-	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(time);
-	        var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
-
-	        interval.to = roundToHalfHours(newTime);
-
-	        refresh();
-	    }
-
-	    function onIntervalClick(intervalId, e) {
-	        var interval = _.find(intervals, function (i) {
-	            return i.id === intervalId;
-	        });
-	        if (interval.className) {
-	            delete interval.className;
-	        } else {
-	            interval.className = "highlighted";
-	        }
-	        refresh();
-	    }
-
-	    function onIntervalDrag(intervalId, newIntervalStart) {
-	        var interval = _.find(intervals, function (i) {
-	            return i.id === intervalId;
-	        });
-	        var intervalBefore = _.find(intervals, function (__, index) {
-	            return index === intervals.length - 1 ? false : intervals[index + 1].id === intervalId;
-	        });
-	        var nextInterval = _.find(intervals, function (__, index) {
-	            return index === 0 ? false : intervals[index - 1].id === intervalId;
-	        });
-	        var minTime = intervalBefore ? intervalBefore.to : "8:00";
-	        var maxEndTime = nextInterval ? nextInterval.from : "18:00";
-	        var intervalDuration = subTimes(interval.to, interval.from);
-	        var maxTime = addMinutes(maxEndTime, -intervalDuration);
-
-	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(newIntervalStart);
-	        var newIntervalStartBounded = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : newIntervalStart;
-
-	        var newIntervalStartRounded = roundToHalfHours(newIntervalStartBounded);
-
-	        var delta = subTimes(newIntervalStartRounded, interval.from);
-	        interval.to = addMinutes(interval.to, delta);
-	        interval.from = newIntervalStartRounded;
-	        refresh();
-	    }
+	    window.document.getElementById("intervals").innerText = JSON.stringify(intervals, null, "\t");
 
 	    React.render(React.createElement(_timeBar.TimeBar, { min: "8:00",
 	        max: "18:00",
@@ -196,7 +224,8 @@
 	 */
 
 	function minutesToStr(minutes) {
-	    return minutes / 60 + ":" + minutes % 60;
+	    var remainderMinutes = minutes % 60;
+	    return Math.floor(minutes / 60) + ":" + (remainderMinutes > 10 ? remainderMinutes : "0" + remainderMinutes);
 	}
 
 	/**
@@ -236,14 +265,13 @@
 	__webpack_require__(4);
 
 	var React = __webpack_require__(8);
-	var _ = __webpack_require__(164);
 
 	function computeDeltaInMinutes(min, max, width, deltaPx) {
 	    var minMinutes = (0, _timeFunctions.timeStrToMinutes)(min);
 	    var maxMinutes = (0, _timeFunctions.timeStrToMinutes)(max);
 	    var intervalDuration = maxMinutes - minMinutes;
 	    var pixelDuration = intervalDuration / width;
-	    return deltaPx * pixelDuration;
+	    return Math.round(deltaPx * pixelDuration);
 	}
 
 	function modifyTimeByPixels(min, max, width, t0, deltaPx) {
@@ -474,7 +502,7 @@
 
 
 	// module
-	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px dashed #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle {\n  position: absolute;\n  display: inline-block;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  width: 2px;\n  background: #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: -2px;\n  cursor: w-resize;\n}\n.interval-handle-right {\n  right: -2px;\n  cursor: e-resize;\n}\n", ""]);
+	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  transition: 0.2s left ease-out, 0.2s width ease-out;\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
 
 	// exports
 

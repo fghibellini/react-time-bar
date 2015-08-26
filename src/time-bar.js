@@ -2,7 +2,6 @@
 require("!style!css!less!./styles.less");
 
 var React = require("react");
-var _ = require("lodash");
 
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './global-cursor';
 import { timeStrToMinutes, minutesToStr, timeToPercentil } from './time-functions';
@@ -13,7 +12,7 @@ function computeDeltaInMinutes(min, max, width, deltaPx) {
     var maxMinutes = timeStrToMinutes(max);
     var intervalDuration = maxMinutes - minMinutes;
     var pixelDuration = intervalDuration / width;
-    return deltaPx * pixelDuration;
+    return Math.round(deltaPx * pixelDuration);
 }
 
 function modifyTimeByPixels(min, max, width, t0, deltaPx) {

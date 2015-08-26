@@ -16,7 +16,8 @@ export function timeStrToMinutes(str) {
  * to a string of format "HH:MM"
  */
 export function minutesToStr(minutes) {
-    return (minutes / 60) + ":" + (minutes % 60);
+    var remainderMinutes = minutes % 60;
+    return Math.floor(minutes / 60) + ":" + (remainderMinutes > 10 ? remainderMinutes : "0" + remainderMinutes );
 }
 
 /**

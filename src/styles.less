@@ -1,8 +1,10 @@
 
-@handle-width:2px;
+@handle-width:8px;
 @bar-height:30px;
 @bar-color: #eeeeee;
 @border-color: #cccccc;
+@border-width: 2px;
+@movement-duration: 0.2s;
 
 .user-select(@select) {
     -webkit-user-select: @select;
@@ -28,27 +30,31 @@
     box-sizing: border-box;
     top: 0;
     height: 100%;
-    border: 2px dashed @border-color;
+    border: @border-width solid @border-color;
     .user-select(none);
+    transition: @movement-duration left ease-out, @movement-duration width ease-out;
 }
 
 .interval-handle {
     position: absolute;
-    display: inline-block;
+    display: block;
     box-sizing: border-box;
     top: 0;
-    height: 100%;
+    height: auto;
+    bottom: 0;
     width: @handle-width;
-    background: @border-color;
+    margin: -@border-width;
     .user-select(none);
 }
 
 .interval-handle-left {
-    left: -@handle-width;
+    left: 0;
     cursor: w-resize;
+    border-left: @border-width solid @border-color;
 }
 
 .interval-handle-right {
-    right: -@handle-width;
+    right: 0;
     cursor: e-resize;
+    border-right: @border-width solid @border-color;
 }
