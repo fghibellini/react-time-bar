@@ -50,16 +50,29 @@
 
 	var _timeBar = __webpack_require__(2);
 
+	__webpack_require__(167);
+
 	var React = __webpack_require__(8);
 	var _ = __webpack_require__(164);
 
-	function roundToQuarters(timeStr) {
+	function roundToHalfHours(timeStr) {
 	    var minutes = (0, _timeFunctions.timeStrToMinutes)(timeStr);
-	    var rounded = minutes - minutes % 15;
+	    var rounded = 30 * Math.round(minutes / 30);
 	    return (0, _timeFunctions.minutesToStr)(rounded);
 	}
 
-	var intervals = [{ id: 0, from: "10:00", to: "11:00" }, { id: 1, from: "12:00", to: "15:00" }];
+	function subTimes(time1, time0) {
+	    var minutes0 = (0, _timeFunctions.timeStrToMinutes)(time0);
+	    var minutes1 = (0, _timeFunctions.timeStrToMinutes)(time1);
+	    return minutes1 - minutes0;
+	}
+
+	function addMinutes(timeStr, deltaMinutes) {
+	    var minutes = (0, _timeFunctions.timeStrToMinutes)(timeStr);
+	    return (0, _timeFunctions.minutesToStr)(minutes + deltaMinutes);
+	}
+
+	var intervals = [{ id: 0, from: "10:00", to: "11:00", className: "highlighted" }, { id: 1, from: "12:00", to: "15:00" }];
 
 	function refresh() {
 
@@ -76,7 +89,7 @@
 	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(time);
 	        var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
 
-	        interval.from = roundToQuarters(newTime);
+	        interval.from = roundToHalfHours(newTime);
 
 	        refresh();
 	    }
@@ -94,8 +107,46 @@
 	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(time);
 	        var newTime = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : time;
 
-	        interval.to = roundToQuarters(newTime);
+	        interval.to = roundToHalfHours(newTime);
 
+	        refresh();
+	    }
+
+	    function onIntervalClick(intervalId, e) {
+	        var interval = _.find(intervals, function (i) {
+	            return i.id === intervalId;
+	        });
+	        if (interval.className) {
+	            delete interval.className;
+	        } else {
+	            interval.className = "highlighted";
+	        }
+	        refresh();
+	    }
+
+	    function onIntervalDrag(intervalId, newIntervalStart) {
+	        var interval = _.find(intervals, function (i) {
+	            return i.id === intervalId;
+	        });
+	        var intervalBefore = _.find(intervals, function (__, index) {
+	            return index === intervals.length - 1 ? false : intervals[index + 1].id === intervalId;
+	        });
+	        var nextInterval = _.find(intervals, function (__, index) {
+	            return index === 0 ? false : intervals[index - 1].id === intervalId;
+	        });
+	        var minTime = intervalBefore ? intervalBefore.to : "8:00";
+	        var maxEndTime = nextInterval ? nextInterval.from : "18:00";
+	        var intervalDuration = subTimes(interval.to, interval.from);
+	        var maxTime = addMinutes(maxEndTime, -intervalDuration);
+
+	        var timeInMinutes = (0, _timeFunctions.timeStrToMinutes)(newIntervalStart);
+	        var newIntervalStartBounded = timeInMinutes > (0, _timeFunctions.timeStrToMinutes)(maxTime) ? maxTime : timeInMinutes < (0, _timeFunctions.timeStrToMinutes)(minTime) ? minTime : newIntervalStart;
+
+	        var newIntervalStartRounded = roundToHalfHours(newIntervalStartBounded);
+
+	        var delta = subTimes(newIntervalStartRounded, interval.from);
+	        interval.to = addMinutes(interval.to, delta);
+	        interval.from = newIntervalStartRounded;
 	        refresh();
 	    }
 
@@ -104,7 +155,9 @@
 	        width: 800,
 	        intervals: intervals,
 	        onStartChange: updateStart,
-	        onEndChange: updateEnd }), window.document.getElementById("container"));
+	        onEndChange: updateEnd,
+	        onIntervalClick: onIntervalClick,
+	        onIntervalDrag: onIntervalDrag }), window.document.getElementById("container"));
 	}
 
 	refresh();
@@ -178,20 +231,26 @@
 
 	var _timeFunctions = __webpack_require__(1);
 
+	var _utils = __webpack_require__(166);
+
 	__webpack_require__(4);
 
 	var React = __webpack_require__(8);
 	var _ = __webpack_require__(164);
 
-	function modifyTimeByPixels(min, max, width, t0, deltaPx) {
-	    var _min = (0, _timeFunctions.timeStrToMinutes)(min);
-	    var _max = (0, _timeFunctions.timeStrToMinutes)(max);
-	    var l = _max - _min;
-	    var pixelDuration = l / width;
-	    var deltaMinutes = deltaPx * pixelDuration;
+	function computeDeltaInMinutes(min, max, width, deltaPx) {
+	    var minMinutes = (0, _timeFunctions.timeStrToMinutes)(min);
+	    var maxMinutes = (0, _timeFunctions.timeStrToMinutes)(max);
+	    var intervalDuration = maxMinutes - minMinutes;
+	    var pixelDuration = intervalDuration / width;
+	    return deltaPx * pixelDuration;
+	}
 
-	    var _t0 = (0, _timeFunctions.timeStrToMinutes)(t0);
-	    return (0, _timeFunctions.minutesToStr)(_t0 + deltaMinutes);
+	function modifyTimeByPixels(min, max, width, t0, deltaPx) {
+	    var deltaMinutes = computeDeltaInMinutes(min, max, width, deltaPx);
+	    var t0InMinutes = (0, _timeFunctions.timeStrToMinutes)(t0);
+
+	    return (0, _timeFunctions.minutesToStr)(t0InMinutes + deltaMinutes);
 	}
 
 	var TimeBar = React.createClass({
@@ -202,10 +261,13 @@
 	        width: React.PropTypes.number,
 	        onStartChange: React.PropTypes.func,
 	        onEndChange: React.PropTypes.func,
+	        onIntervalClick: React.PropTypes.func,
+	        onIntervalDrag: React.PropTypes.func,
 	        intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
 	            id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
 	            from: React.PropTypes.string,
-	            to: React.PropTypes.string
+	            to: React.PropTypes.string,
+	            className: React.PropTypes.string
 	        }))
 	    },
 	    getInitialState: function getInitialState() {
@@ -213,71 +275,91 @@
 	            dragging: null
 	        };
 	    },
-	    componentDidMount: function componentDidMount() {},
-	    dragStart: function dragStart(intervalId, side, initialXCoord, timeBeforeDrag) {
+	    dragStart: function dragStart(intervalId, side, initialCoords, timeBeforeDrag) {
 	        var _this = this;
 
-	        (0, _globalCursor.setCursorToWholeDocument)(window.document, side === "left" ? "w-resize" : "e-resize");
-
 	        var onMouseMove = function onMouseMove(e) {
-	            if (_this.state.dragging) {
-	                _this.drag(e.clientX);
-	            }
+	            _this.drag({ x: e.clientX, y: e.clientY });
 	        };
 	        window.document.addEventListener("mousemove", onMouseMove);
 
 	        var onMouseUp = function onMouseUp() {
-	            if (_this.state.dragging) {
-	                _this.dragEnd();
-	            }
+	            _this.dragEnd();
 	        };
 	        window.document.addEventListener("mouseup", onMouseUp);
 
-	        this.setState({
+	        this.setState((0, _utils.objectAssign)(this.state, {
 	            dragging: {
 	                intervalId: intervalId,
 	                side: side,
 	                timeBeforeDrag: timeBeforeDrag,
-	                initialXCoord: initialXCoord,
+	                initialCoords: initialCoords,
+	                movedAfterDragStart: false,
 	                eventHandlers: {
 	                    mousemove: onMouseMove,
 	                    mouseup: onMouseUp
 	                }
 	            }
-	        });
+	        }));
 	    },
-	    dragEnd: function dragEnd() {
-	        var _state$dragging$eventHandlers = this.state.dragging.eventHandlers;
-	        var mousemove = _state$dragging$eventHandlers.mousemove;
-	        var mouseup = _state$dragging$eventHandlers.mouseup;
-
-	        window.document.removeEventListener("mousemove", mousemove);
-	        window.document.removeEventListener("mouseup", mouseup);
-	        (0, _globalCursor.unsetCursorToWholeDocument)(window.document);
-	        this.setState({
-	            dragging: null
-	        });
-	    },
-	    drag: function drag(clientX) {
+	    drag: function drag(newCoords) {
 	        var _state$dragging = this.state.dragging;
 	        var intervalId = _state$dragging.intervalId;
 	        var side = _state$dragging.side;
 	        var timeBeforeDrag = _state$dragging.timeBeforeDrag;
-	        var initialXCoord = _state$dragging.initialXCoord;
+	        var initialCoords = _state$dragging.initialCoords;
+	        var movedAfterDragStart = _state$dragging.movedAfterDragStart;
 	        var _props = this.props;
 	        var min = _props.min;
 	        var max = _props.max;
 	        var width = _props.width;
 	        var onStartChange = _props.onStartChange;
 	        var onEndChange = _props.onEndChange;
+	        var onIntervalDrag = _props.onIntervalDrag;
 
-	        var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, clientX - initialXCoord);
+	        var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
+
+	        if (!this.state.dragging.movedAfterDragStart) {
+	            var cursorName = ({
+	                left: "w-resize",
+	                right: "e-resize",
+	                whole: "move"
+	            })[side];
+	            (0, _globalCursor.setCursorToWholeDocument)(window.document, cursorName);
+
+	            this.state.dragging.movedAfterDragStart = true;
+	            this.setState(this.state);
+	        }
 
 	        if (side === "left") {
 	            onStartChange(intervalId, newTime);
-	        } else {
+	        } else if (side === "right") {
 	            onEndChange(intervalId, newTime);
+	        } else if (side === "whole") {
+	            onIntervalDrag(intervalId, newTime);
 	        }
+	    },
+	    dragEnd: function dragEnd() {
+	        var onIntervalClick = this.props.onIntervalClick;
+	        var _state$dragging2 = this.state.dragging;
+	        var eventHandlers = _state$dragging2.eventHandlers;
+	        var intervalId = _state$dragging2.intervalId;
+	        var movedAfterDragStart = _state$dragging2.movedAfterDragStart;
+	        var mousemove = eventHandlers.mousemove;
+	        var mouseup = eventHandlers.mouseup;
+
+	        window.document.removeEventListener("mousemove", mousemove);
+	        window.document.removeEventListener("mouseup", mouseup);
+
+	        if (movedAfterDragStart) {
+	            (0, _globalCursor.unsetCursorToWholeDocument)(window.document);
+	        } else {
+	            onIntervalClick(intervalId, null);
+	        }
+
+	        this.setState((0, _utils.objectAssign)(this.state, {
+	            dragging: null
+	        }));
 	    },
 	    render: function render() {
 	        var _this2 = this;
@@ -293,16 +375,26 @@
 	            var end = width * (0, _timeFunctions.timeToPercentil)(min, max, int.to);
 
 	            var leftHandleDragStart = function leftHandleDragStart(e) {
-	                return _this2.dragStart(int.id, "left", e.clientX, int.from);
+	                _this2.dragStart(int.id, "left", { x: e.clientX, y: e.clientY }, int.from);
+	                e.preventDefault();
+	                e.stopPropagation();
 	            };
 	            var rightHandleDragStart = function rightHandleDragStart(e) {
-	                return _this2.dragStart(int.id, "right", e.clientX, int.to);
+	                _this2.dragStart(int.id, "right", { x: e.clientX, y: e.clientY }, int.to);
+	                e.preventDefault();
+	                e.stopPropagation();
+	            };
+	            var intervalDragStart = function intervalDragStart(e) {
+	                _this2.dragStart(int.id, "whole", { x: e.clientX, y: e.clientY }, int.from);
+	                e.preventDefault();
+	                e.stopPropagation();
 	            };
 
 	            return React.createElement(
 	                "div",
-	                { className: "interval",
+	                { className: ["interval", int.className].join(" "),
 	                    key: intIndex,
+	                    onMouseDown: intervalDragStart,
 	                    style: { left: start, width: end - start } },
 	                React.createElement("div", { className: "interval-handle interval-handle-left",
 	                    onMouseDown: leftHandleDragStart }),
@@ -33415,6 +33507,64 @@
 		}
 		return module;
 	}
+
+
+/***/ },
+/* 166 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.objectAssign = objectAssign;
+
+	function objectAssign(target, props) {
+	    for (var i in props) {
+	        target[i] = props[i];
+	    }
+	    return target;
+	}
+
+/***/ },
+/* 167 */
+/***/ function(module, exports, __webpack_require__) {
+
+	// style-loader: Adds some css to the DOM by adding a <style> tag
+
+	// load the styles
+	var content = __webpack_require__(168);
+	if(typeof content === 'string') content = [[module.id, content, '']];
+	// add the styles to the DOM
+	var update = __webpack_require__(7)(content, {});
+	if(content.locals) module.exports = content.locals;
+	// Hot Module Replacement
+	if(false) {
+		// When the styles change, update the <style> tags
+		if(!content.locals) {
+			module.hot.accept("!!./../node_modules/css-loader/index.js!./../node_modules/less-loader/index.js!./demo.less", function() {
+				var newContent = require("!!./../node_modules/css-loader/index.js!./../node_modules/less-loader/index.js!./demo.less");
+				if(typeof newContent === 'string') newContent = [[module.id, newContent, '']];
+				update(newContent);
+			});
+		}
+		// When the module is disposed, remove the <style> tags
+		module.hot.dispose(function() { update(); });
+	}
+
+/***/ },
+/* 168 */
+/***/ function(module, exports, __webpack_require__) {
+
+	exports = module.exports = __webpack_require__(6)();
+	// imports
+
+
+	// module
+	exports.push([module.id, ".highlighted {\n  background: red;\n}\n", ""]);
+
+	// exports
 
 
 /***/ }
