@@ -47,13 +47,13 @@
 
 	"use strict";
 
-	var _srcEventStream = __webpack_require__(169);
+	var _srcRxLogic = __webpack_require__(173);
 
 	var _eventSimulation = __webpack_require__(171);
 
 	var MouseEvent = window.MouseEvent;
 
-	describe("genStreamStructure", function () {
+	describe("setupRxLogic", function () {
 
 	    /**
 	     * TODO
@@ -66,11 +66,16 @@
 
 	    it("terminated by termination signal", function (done) {
 	        var document = window.document;
-	        var structure = (0, _srcEventStream.genStreamStructure)(document);
+
+	        var _setupRxLogic = (0, _srcRxLogic.setupRxLogic)(document);
+
+	        var observable = _setupRxLogic.observable;
+	        var mouseDownObserver = _setupRxLogic.mouseDownObserver;
+	        var terminationObserver = _setupRxLogic.terminationObserver;
 
 	        var registered = [];
 
-	        structure.observable.subscribe(function (update) {
+	        observable.subscribe(function (update) {
 	            registered.push(update);
 	        }, function (error) {
 	            done(error);
@@ -83,22 +88,27 @@
 	        });
 
 	        (0, _eventSimulation.replayEvents)([new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 1 })), // 0
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousedown", { clientX: 2 })), // 1
+	        new _eventSimulation.FakeMouseDown(mouseDownObserver, new MouseEvent("mousedown", { clientX: 2 })), // 1
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 3 })), // 2
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 4 })), // 3
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mouseup", { clientX: 5 })), // 4
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 6 })), // 4
-	        new _eventSimulation.TerminationSignal(structure.terminationObserver) // 5
+	        new _eventSimulation.TerminationSignal(terminationObserver) // 5
 	        ]);
 	    });
 
 	    it("terminated by mouseup", function (done) {
 	        var document = window.document;
-	        var structure = (0, _srcEventStream.genStreamStructure)(document);
+
+	        var _setupRxLogic2 = (0, _srcRxLogic.setupRxLogic)(document);
+
+	        var observable = _setupRxLogic2.observable;
+	        var mouseDownObserver = _setupRxLogic2.mouseDownObserver;
+	        var terminationObserver = _setupRxLogic2.terminationObserver;
 
 	        var registered = [];
 
-	        var disposable = structure.observable.subscribe(function (update) {
+	        var disposable = observable.subscribe(function (update) {
 	            registered.push(update);
 	        }, function (error) {
 	            done(error);
@@ -111,13 +121,13 @@
 	        });
 
 	        (0, _eventSimulation.replayEvents)([new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 1 })), // 0
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousedown", { clientX: 2 })), // 1
+	        new _eventSimulation.FakeMouseDown(mouseDownObserver, new MouseEvent("mousedown", { clientX: 2 })), // 1
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 3 })), // 2
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 4 })), // 3
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mouseup", { clientX: 5 })), // 4
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 6 })), // 4
 	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mouseup", { clientX: 7 })), // 4
-	        new _eventSimulation.TerminationSignal(structure.terminationObserver) // 5
+	        new _eventSimulation.TerminationSignal(terminationObserver) // 5
 	        ]);
 	    });
 	});
@@ -235,41 +245,6 @@
 		return module;
 	}
 
-
-/***/ },
-
-/***/ 169:
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-	exports.genStreamStructure = genStreamStructure;
-
-	var rx = __webpack_require__(170);
-
-	__webpack_require__(172);
-
-	function genStreamStructure(document) {
-	    var mouseDowns = rx.Observable.fromEvent(document, 'mousedown');
-	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
-	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-
-	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
-	    });
-
-	    var terminationSubject = new rx.Subject();
-
-	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
-
-	    return {
-	        terminationObserver: terminationSubject,
-	        observable: terminatedMouseStream
-	    };
-	}
 
 /***/ },
 
@@ -10727,8 +10702,6 @@
 	        this.terminationObserver = terminationObserver;
 	    }
 
-	    // FUNCTIONS
-
 	    _createClass(TerminationSignal, [{
 	        key: "perform",
 	        value: function perform() {
@@ -10740,6 +10713,28 @@
 	})();
 
 	exports.TerminationSignal = TerminationSignal;
+
+	var FakeMouseDown = (function () {
+	    function FakeMouseDown(mousedownObserver, update) {
+	        _classCallCheck(this, FakeMouseDown);
+
+	        this.mousedownObserver = mousedownObserver;
+	        this.update = update;
+	    }
+
+	    // FUNCTIONS
+
+	    _createClass(FakeMouseDown, [{
+	        key: "perform",
+	        value: function perform() {
+	            this.mousedownObserver.onNext(this.update);
+	        }
+	    }]);
+
+	    return FakeMouseDown;
+	})();
+
+	exports.FakeMouseDown = FakeMouseDown;
 
 	function replayEvents(eventSequence) {
 	    var _iteratorNormalCompletion = true;
@@ -10806,6 +10801,42 @@
 	        };
 	    });
 	};
+
+/***/ },
+
+/***/ 173:
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.setupRxLogic = setupRxLogic;
+
+	var rx = __webpack_require__(170);
+
+	__webpack_require__(172);
+
+	function setupRxLogic(document) {
+	    var mouseDowns = new rx.Subject();
+	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
+	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+
+	    var mouseStream = mouseDowns.flatMap(function (e) {
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
+	    });
+
+	    var terminationSubject = new rx.Subject();
+
+	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
+
+	    return {
+	        mouseDownObserver: mouseDowns,
+	        terminationObserver: terminationSubject,
+	        observable: terminatedMouseStream
+	    };
+	}
 
 /***/ }
 

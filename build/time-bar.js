@@ -262,7 +262,7 @@
 
 	var _utils = __webpack_require__(4);
 
-	var _eventStream = __webpack_require__(169);
+	var _rxLogic = __webpack_require__(173);
 
 	__webpack_require__(5);
 
@@ -303,23 +303,35 @@
 	        }))
 	    },
 	    getInitialState: function getInitialState() {
-	        var _genStreamStructure = (0, _eventStream.genStreamStructure)(window.document);
+	        var _this = this;
 
-	        var observable = _genStreamStructure.observable;
-	        var terminationObserver = _genStreamStructure.terminationObserver;
+	        var _setupRxLogic = (0, _rxLogic.setupRxLogic)(window.document);
+
+	        var observable = _setupRxLogic.observable;
+	        var mouseDownObserver = _setupRxLogic.mouseDownObserver;
+	        var terminationObserver = _setupRxLogic.terminationObserver;
 
 	        observable.subscribe(function (update) {
 	            if (update === TERMINATION_MSG) {
 	                // handle termination
 	            } else if (update.type === "mousedown") {
 	                    // handle mousedown
+	                    var intervalId = update.intervalId;
+	                    var side = update.side;
+	                    var initialCoords = update.initialCoords;
+	                    var timeBeforeDrag = update.timeBeforeDrag;
+
+	                    _this.dragStart(intervalId, side, initialCoords, timeBeforeDrag);
+	                } else if (update.type === "mousemove") {
+	                    // handle mousemove
+	                    _this.drag(update);
 	                } else if (update.type === "mouseup") {
-	                        // handle mouseup
-	                    } else if (update.type === "mousemove") {
-	                            // handle mousemove
-	                        } else {
-	                                // handle other
-	                            }
+	                    // handle mouseup
+	                    _this.dragEnd();
+	                } else {
+	                    // handle other
+	                    console.error("unexpected branch reach");
+	                }
 	        }, function (error) {
 	            console.log(error);
 	        }, function () {
@@ -328,32 +340,21 @@
 
 	        return {
 	            terminationObserver: terminationObserver,
+	            mouseDownObserver: mouseDownObserver,
 	            dragging: null
 	        };
 	    },
-	    componentDidMount: function componentDidMount() {},
 	    componentWillUnmount: function componentWillUnmount() {
 	        this.state.terminationObserver.onNext(TERMINATION_MSG);
 	    },
 	    dragStart: function dragStart(intervalId, side, initialCoords, timeBeforeDrag) {
-	        //window.document.addEventListener("mousemove", onMouseMove);
-
-	        //var onMouseUp = () => {
-	        //    this.dragEnd();
-	        //};
-	        //window.document.addEventListener("mouseup", onMouseUp);
-
 	        this.setState((0, _utils.objectAssign)(this.state, {
 	            dragging: {
 	                intervalId: intervalId,
 	                side: side,
-	                timeBeforeDrag: timeBeforeDrag,
 	                initialCoords: initialCoords,
+	                timeBeforeDrag: timeBeforeDrag,
 	                movedAfterDragStart: false
-	                //eventHandlers: {
-	                //    mousemove: onMouseMove,
-	                //    mouseup: onMouseUp
-	                //}
 	            }
 	        }));
 	    },
@@ -397,14 +398,8 @@
 	    dragEnd: function dragEnd() {
 	        var onIntervalClick = this.props.onIntervalClick;
 	        var _state$dragging2 = this.state.dragging;
-	        var eventHandlers = _state$dragging2.eventHandlers;
 	        var intervalId = _state$dragging2.intervalId;
 	        var movedAfterDragStart = _state$dragging2.movedAfterDragStart;
-	        var mousemove = eventHandlers.mousemove;
-	        var mouseup = eventHandlers.mouseup;
-
-	        window.document.removeEventListener("mousemove", mousemove);
-	        window.document.removeEventListener("mouseup", mouseup);
 
 	        if (movedAfterDragStart) {
 	            (0, _globalCursor.unsetCursorToWholeDocument)(window.document);
@@ -417,7 +412,7 @@
 	        }));
 	    },
 	    render: function render() {
-	        var _this = this;
+	        var _this2 = this;
 
 	        var _props2 = this.props;
 	        var min = _props2.min;
@@ -430,17 +425,35 @@
 	            var end = width * (0, _timeFunctions.timeToPercentil)(min, max, int.to);
 
 	            var leftHandleDragStart = function leftHandleDragStart(e) {
-	                _this.dragStart(int.id, "left", { x: e.clientX, y: e.clientY }, int.from);
+	                _this2.state.mouseDownObserver.onNext({
+	                    type: "mousedown",
+	                    intervalId: int.id,
+	                    side: "left",
+	                    initialCoords: { x: e.clientX, y: e.clientY },
+	                    timeBeforeDrag: int.from
+	                });
 	                e.preventDefault();
 	                e.stopPropagation();
 	            };
 	            var rightHandleDragStart = function rightHandleDragStart(e) {
-	                _this.dragStart(int.id, "right", { x: e.clientX, y: e.clientY }, int.to);
+	                _this2.state.mouseDownObserver.onNext({
+	                    type: "mousedown",
+	                    intervalId: int.id,
+	                    side: "right",
+	                    initialCoords: { x: e.clientX, y: e.clientY },
+	                    timeBeforeDrag: int.to
+	                });
 	                e.preventDefault();
 	                e.stopPropagation();
 	            };
 	            var intervalDragStart = function intervalDragStart(e) {
-	                _this.dragStart(int.id, "whole", { x: e.clientX, y: e.clientY }, int.from);
+	                _this2.state.mouseDownObserver.onNext({
+	                    type: "mousedown",
+	                    intervalId: int.id,
+	                    side: "whole",
+	                    initialCoords: { x: e.clientX, y: e.clientY },
+	                    timeBeforeDrag: int.from
+	                });
 	                e.preventDefault();
 	                e.stopPropagation();
 	            };
@@ -33623,40 +33636,7 @@
 
 
 /***/ },
-/* 169 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-	exports.genStreamStructure = genStreamStructure;
-
-	var rx = __webpack_require__(170);
-
-	__webpack_require__(172);
-
-	function genStreamStructure(document) {
-	    var mouseDowns = rx.Observable.fromEvent(document, 'mousedown');
-	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
-	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-
-	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
-	    });
-
-	    var terminationSubject = new rx.Subject();
-
-	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
-
-	    return {
-	        terminationObserver: terminationSubject,
-	        observable: terminatedMouseStream
-	    };
-	}
-
-/***/ },
+/* 169 */,
 /* 170 */
 /***/ function(module, exports, __webpack_require__) {
 
@@ -44102,6 +44082,41 @@
 	        };
 	    });
 	};
+
+/***/ },
+/* 173 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.setupRxLogic = setupRxLogic;
+
+	var rx = __webpack_require__(170);
+
+	__webpack_require__(172);
+
+	function setupRxLogic(document) {
+	    var mouseDowns = new rx.Subject();
+	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
+	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+
+	    var mouseStream = mouseDowns.flatMap(function (e) {
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
+	    });
+
+	    var terminationSubject = new rx.Subject();
+
+	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
+
+	    return {
+	        mouseDownObserver: mouseDowns,
+	        terminationObserver: terminationSubject,
+	        observable: terminatedMouseStream
+	    };
+	}
 
 /***/ }
 /******/ ]);

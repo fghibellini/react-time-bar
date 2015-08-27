@@ -3,9 +3,9 @@ var rx = require("rx");
 
 require("./rx-operators");
 
-export function genStreamStructure(document) {
-    var mouseDowns = rx.Observable.fromEvent(document, 'mousedown');
-    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
+export function setupRxLogic(document) {
+    var mouseDowns = new rx.Subject();
+    var mouseUps   = rx.Observable.fromEvent(document, 'mouseup');
     var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
 
     var mouseStream = mouseDowns.flatMap(function(e) {
@@ -17,6 +17,7 @@ export function genStreamStructure(document) {
     var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
 
     return {
+        mouseDownObserver: mouseDowns,
         terminationObserver: terminationSubject,
         observable: terminatedMouseStream
     };

@@ -22,6 +22,17 @@ export class TerminationSignal {
     }
 }
 
+export class FakeMouseDown {
+    constructor(mousedownObserver, update) {
+        this.mousedownObserver = mousedownObserver;
+        this.update = update;
+    }
+
+    perform() {
+        this.mousedownObserver.onNext(this.update);
+    }
+}
+
 // FUNCTIONS
 
 export function replayEvents(eventSequence) {

@@ -10,3 +10,4 @@
 - memoize the timeStrToMinutes() calls
 - ? minimal mouse-coordinate change before drag
 - ? enlarge handle to the outside when there is no interval on that side
+- ? handle parallel mousedowns
