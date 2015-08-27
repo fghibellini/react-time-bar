@@ -1,8 +1,11 @@
 module.exports = {
-    entry: "./src/main.js",
+    entry: {
+        "time-bar": "./src/main.js",
+        tests: "./test/main.js"
+    },
     output: {
         path: "./build/",
-        filename: "time-bar.js"
+        filename: "[name].js"
     },
     module: {
         loaders: [

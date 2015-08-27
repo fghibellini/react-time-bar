@@ -11,6 +11,7 @@
     "less-loader": "^2.2.0",
     "lodash": "^3.10.1",
     "react": "^0.13.3",
+    "rx": "^3.1.1",
     "style-loader": "^0.12.3"
   },
   "devDependencies": {},

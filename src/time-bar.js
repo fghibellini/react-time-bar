@@ -6,6 +6,7 @@ var React = require("react");
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './global-cursor';
 import { timeStrToMinutes, minutesToStr, timeToPercentil } from './time-functions';
 import { objectAssign } from './utils';
+import { genStreamStructure } from './event-stream';
 
 function computeDeltaInMinutes(min, max, width, deltaPx) {
     var minMinutes = timeStrToMinutes(min);
@@ -21,6 +22,8 @@ function modifyTimeByPixels(min, max, width, t0, deltaPx) {
 
     return minutesToStr(t0InMinutes + deltaMinutes);
 }
+
+var TERMINATION_MSG = {};
 
 export var TimeBar = React.createClass({
     displayName: "TimeBar",
@@ -43,20 +46,43 @@ export var TimeBar = React.createClass({
         }))
     },
     getInitialState: function() {
+        var { observable, terminationObserver } = genStreamStructure(window.document);
+
+        observable.subscribe(update => {
+            if (update === TERMINATION_MSG) {
+                // handle termination
+            } else if (update.type === "mousedown") {
+                // handle mousedown
+            } else if (update.type === "mouseup") {
+                // handle mouseup
+            } else if (update.type === "mousemove") {
+                // handle mousemove
+            } else {
+                // handle other
+            }
+        }, error => {
+            console.log(error);
+        }, () => {
+            // noop
+        });
+
         return {
+            terminationObserver: terminationObserver,
             dragging: null
         };
     },
+    componentDidMount: function() {
+    },
+    componentWillUnmount: function() {
+        this.state.terminationObserver.onNext(TERMINATION_MSG);
+    },
     dragStart: function(intervalId, side, initialCoords, timeBeforeDrag) {
-        var onMouseMove = e => {
-            this.drag({ x: e.clientX, y: e.clientY });
-        };
-        window.document.addEventListener("mousemove", onMouseMove);
+        //window.document.addEventListener("mousemove", onMouseMove);
 
-        var onMouseUp = () => {
-            this.dragEnd();
-        };
-        window.document.addEventListener("mouseup", onMouseUp);
+        //var onMouseUp = () => {
+        //    this.dragEnd();
+        //};
+        //window.document.addEventListener("mouseup", onMouseUp);
 
         this.setState(objectAssign(this.state, {
             dragging: {
@@ -64,11 +90,11 @@ export var TimeBar = React.createClass({
                 side: side,
                 timeBeforeDrag: timeBeforeDrag,
                 initialCoords: initialCoords,
-                movedAfterDragStart: false,
-                eventHandlers: {
-                    mousemove: onMouseMove,
-                    mouseup: onMouseUp
-                }
+                movedAfterDragStart: false
+                //eventHandlers: {
+                //    mousemove: onMouseMove,
+                //    mouseup: onMouseUp
+                //}
             }
         }));
     },
