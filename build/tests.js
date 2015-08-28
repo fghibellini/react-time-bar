@@ -40,15 +40,16 @@
 /******/ 	return __webpack_require__(0);
 /******/ })
 /************************************************************************/
-/******/ ([
-/* 0 */
+/******/ ({
+
+/***/ 0:
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var _srcRxLogic = __webpack_require__(1);
+	var _srcRxLogic = __webpack_require__(5);
 
-	var _eventSimulation = __webpack_require__(6);
+	var _eventSimulation = __webpack_require__(172);
 
 	var MouseEvent = window.MouseEvent;
 
@@ -132,7 +133,8 @@
 	});
 
 /***/ },
-/* 1 */
+
+/***/ 5:
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -142,9 +144,9 @@
 	});
 	exports.setupRxLogic = setupRxLogic;
 
-	var rx = __webpack_require__(2);
+	var rx = __webpack_require__(6);
 
-	__webpack_require__(5);
+	__webpack_require__(9);
 
 	/**
 	 * Returns an rx observable and rx observers for input from
@@ -196,7 +198,8 @@
 	}
 
 /***/ },
-/* 2 */
+
+/***/ 6:
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(module, global, process) {// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
@@ -10601,10 +10604,11 @@
 
 	}.call(this));
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)(module), (function() { return this; }()), __webpack_require__(4)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(7)(module), (function() { return this; }()), __webpack_require__(8)))
 
 /***/ },
-/* 3 */
+
+/***/ 7:
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -10620,7 +10624,8 @@
 
 
 /***/ },
-/* 4 */
+
+/***/ 8:
 /***/ function(module, exports) {
 
 	// shim for using process in browser
@@ -10716,12 +10721,13 @@
 
 
 /***/ },
-/* 5 */
+
+/***/ 9:
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var rx = __webpack_require__(2);
+	var rx = __webpack_require__(6);
 
 	var noop = rx.helpers.noop;
 	var AnonymousObservable = rx.AnonymousObservable;
@@ -10754,7 +10760,8 @@
 	};
 
 /***/ },
-/* 6 */
+
+/***/ 172:
 /***/ function(module, exports) {
 
 	
@@ -10861,4 +10868,5 @@
 	}
 
 /***/ }
-/******/ ]);
+
+/******/ });

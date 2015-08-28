@@ -1,6 +1,6 @@
 module.exports = {
     entry: {
-        "time-bar": "./src/main.js",
+        demo: "./demo/main.js",
         tests: "./test/main.js"
     },
     output: {

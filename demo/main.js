@@ -1,11 +1,11 @@
 
-require("!style!css!less!./demo.less");
+require("!style!css!less!./style.less");
 
 var React = require("react");
 var _ = require("lodash");
 
-import { timeStrToMinutes, minutesToStr } from './time-functions';
-import { TimeBar } from './time-bar';
+import { timeStrToMinutes, minutesToStr } from '../src/time-functions';
+import { TimeBar } from '../src/time-bar';
 
 function roundToHalfHours(timeStr) {
     var minutes = timeStrToMinutes(timeStr);
