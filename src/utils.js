@@ -1,4 +1,6 @@
 
+var _ = require("lodash");
+
 export function objectAssign(target, props) {
     for (var i in props) {
         target[i] = props[i];
@@ -18,3 +20,5 @@ export function arrayEqual(xs, ys) {
     }
     return true;
 }
+
+export var cloneDeep = _.cloneDeep;

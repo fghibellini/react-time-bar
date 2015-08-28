@@ -5,7 +5,7 @@ var React = require("react");
 
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './global-cursor';
 import { timeStrToMinutes, minutesToStr, timeToPercentil } from './time-functions';
-import { objectAssign, arrayEqual } from './utils';
+import { objectAssign, arrayEqual, cloneDeep } from './utils';
 import { setupRxLogic } from './rx-logic';
 
 function computeDeltaInMinutes(min, max, width, deltaPx) {
@@ -21,21 +21,6 @@ function modifyTimeByPixels(min, max, width, t0, deltaPx) {
     var t0InMinutes = timeStrToMinutes(t0);
 
     return minutesToStr(t0InMinutes + deltaMinutes);
-}
-
-function getRemovedIds(oldIntervals, newIntervals) {
-    var removed = [];
-    outer:
-    for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
-        var oldId = oldIntervals[i].id;
-        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
-            if (oldId == newIntervals[j].id) {
-                continue outer;
-            }
-        }
-        removed.push(oldId);
-    }
-    return removed;
 }
 
 var TERMINATION_MSG = {};
@@ -61,9 +46,10 @@ export var TimeBar = React.createClass({
         }))
     },
     getInitialState: function() {
-        var { observable, mouseDownObserver, elementRemovedObserver, terminationObserver } = setupRxLogic(window.document);
+        var { observable, mouseDownObserver, propertyChangeObserver, terminationObserver } = setupRxLogic(window.document);
 
         observable.subscribe(update => {
+            // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
             if (update === TERMINATION_MSG) {
                 // handle termination
             } else if (update.type === "mousedown") {
@@ -77,8 +63,12 @@ export var TimeBar = React.createClass({
                 // handle mouseup
                 this.dragEnd();
             } else if (update.type === "propchange") {
+                var { newProps } = update;
                 // handle element property changed
                 console.log("a property has changed!");
+                this.setState(objectAssign(this.state, {
+                    props: newProps
+                }));
                 //this.dragEnd();
                 //var newIds = newProps.intervals.map(int => int.id);
                 //if (intervalIds) {
@@ -109,21 +99,32 @@ export var TimeBar = React.createClass({
         return {
             terminationObserver: terminationObserver,
             mouseDownObserver: mouseDownObserver,
-            elementRemovedObserver: elementRemovedObserver,
+            propertyChangeObserver: propertyChangeObserver,
             dragging: null,
-            intervals: this.props.intervals
+            props: cloneDeep(this.props)
         };
     },
     componentWillReceiveProps: function(newProps) {
-        var { intervalIds, propertyChangeObserver } = this.state;
-        this.propertyChangeObserver({
+        var { propertyChangeObserver } = this.state;
+        // storing the version vector on `this` is not optimal
+        var seqNumber = this.propUpdateCounter || 0;
+
+        var newPropUpdate = {
             type: "propchange",
-            newProps: newProps
-        });
+            seqNumber: seqNumber,
+            newProps: cloneDeep(newProps),
+            oldProps: this.props
+        };
+        this.propUpdateCounter = seqNumber + 1;
+
+        propertyChangeObserver.onNext(newPropUpdate);
     },
     componentWillUnmount: function() {
-        this.state.terminationObserver.onNext(TERMINATION_MSG);
+        var { terminationObserver } = this.state;
+        terminationObserver.onNext(TERMINATION_MSG);
     },
+    // !!! the following drag* methods shall be called only by the stream
+    // processor in getInitialState()
     dragStart: function(intervalId, side, initialCoords, timeBeforeDrag) {
         this.setState(objectAssign(this.state, {
             dragging: {
@@ -136,11 +137,12 @@ export var TimeBar = React.createClass({
         }));
     },
     drag: function(newCoords) {
-        var { intervalId, side, timeBeforeDrag, initialCoords, movedAfterDragStart } = this.state.dragging;
-        var { min, max, width, onStartChange, onEndChange, onIntervalDrag } = this.props;
+        var { props, dragging } = this.state;
+        var { intervalId, side, timeBeforeDrag, initialCoords, movedAfterDragStart } = dragging;
+        var { min, max, width, onStartChange, onEndChange, onIntervalDrag } = props;
         var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
 
-        if (!this.state.dragging.movedAfterDragStart) {
+        if (!movedAfterDragStart) {
             var cursorName = {
                 left: "w-resize",
                 right: "e-resize",
@@ -161,8 +163,9 @@ export var TimeBar = React.createClass({
         }
     },
     dragEnd: function() {
-        var { onIntervalClick } = this.props;
-        var { intervalId, movedAfterDragStart } = this.state.dragging;
+        var { dragging, props } = this.state;
+        var { onIntervalClick } = props;
+        var { intervalId, movedAfterDragStart } = dragging;
 
         if (movedAfterDragStart) {
             unsetCursorToWholeDocument(window.document);
@@ -175,14 +178,15 @@ export var TimeBar = React.createClass({
         }));
     },
     render: function() {
-        var { min, max, width, intervals } = this.props;
+        var { props, mouseDownObserver } = this.state;
+        var { min, max, width, intervals } = props;
 
         var mappedIntervals = intervals.map((int, intIndex) => {
             var start = width * timeToPercentil(min, max, int.from);
             var end = width * timeToPercentil(min, max, int.to);
 
             var leftHandleDragStart = e => {
-                this.state.mouseDownObserver.onNext({
+                mouseDownObserver.onNext({
                     type: "mousedown",
                     intervalId: int.id,
                     side: "left",
@@ -193,7 +197,7 @@ export var TimeBar = React.createClass({
                 e.stopPropagation();
             };
             var rightHandleDragStart = e => {
-                this.state.mouseDownObserver.onNext({
+                mouseDownObserver.onNext({
                     type: "mousedown",
                     intervalId: int.id,
                     side: "right",
@@ -204,7 +208,7 @@ export var TimeBar = React.createClass({
                 e.stopPropagation();
             };
             var intervalDragStart = e => {
-                this.state.mouseDownObserver.onNext({
+                mouseDownObserver.onNext({
                     type: "mousedown",
                     intervalId: int.id,
                     side: "whole",

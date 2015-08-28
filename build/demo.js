@@ -283,20 +283,6 @@
 	    return (0, _timeFunctions.minutesToStr)(t0InMinutes + deltaMinutes);
 	}
 
-	function getRemovedIds(oldIntervals, newIntervals) {
-	    var removed = [];
-	    outer: for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
-	        var oldId = oldIntervals[i].id;
-	        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
-	            if (oldId == newIntervals[j].id) {
-	                continue outer;
-	            }
-	        }
-	        removed.push(oldId);
-	    }
-	    return removed;
-	}
-
 	var TERMINATION_MSG = {};
 
 	var TimeBar = React.createClass({
@@ -323,10 +309,11 @@
 
 	        var observable = _setupRxLogic.observable;
 	        var mouseDownObserver = _setupRxLogic.mouseDownObserver;
-	        var elementRemovedObserver = _setupRxLogic.elementRemovedObserver;
+	        var propertyChangeObserver = _setupRxLogic.propertyChangeObserver;
 	        var terminationObserver = _setupRxLogic.terminationObserver;
 
 	        observable.subscribe(function (update) {
+	            // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
 	            if (update === TERMINATION_MSG) {
 	                // handle termination
 	            } else if (update.type === "mousedown") {
@@ -344,8 +331,13 @@
 	                    // handle mouseup
 	                    _this.dragEnd();
 	                } else if (update.type === "propchange") {
+	                    var newProps = update.newProps;
+
 	                    // handle element property changed
 	                    console.log("a property has changed!");
+	                    _this.setState((0, _utils.objectAssign)(_this.state, {
+	                        props: newProps
+	                    }));
 	                    //this.dragEnd();
 	                    //var newIds = newProps.intervals.map(int => int.id);
 	                    //if (intervalIds) {
@@ -376,24 +368,34 @@
 	        return {
 	            terminationObserver: terminationObserver,
 	            mouseDownObserver: mouseDownObserver,
-	            elementRemovedObserver: elementRemovedObserver,
+	            propertyChangeObserver: propertyChangeObserver,
 	            dragging: null,
-	            intervals: this.props.intervals
+	            props: (0, _utils.cloneDeep)(this.props)
 	        };
 	    },
 	    componentWillReceiveProps: function componentWillReceiveProps(newProps) {
-	        var _state = this.state;
-	        var intervalIds = _state.intervalIds;
-	        var propertyChangeObserver = _state.propertyChangeObserver;
+	        var propertyChangeObserver = this.state.propertyChangeObserver;
 
-	        this.propertyChangeObserver({
+	        // storing the version vector on `this` is not optimal
+	        var seqNumber = this.propUpdateCounter || 0;
+
+	        var newPropUpdate = {
 	            type: "propchange",
-	            newProps: newProps
-	        });
+	            seqNumber: seqNumber,
+	            newProps: (0, _utils.cloneDeep)(newProps),
+	            oldProps: this.props
+	        };
+	        this.propUpdateCounter = seqNumber + 1;
+
+	        propertyChangeObserver.onNext(newPropUpdate);
 	    },
 	    componentWillUnmount: function componentWillUnmount() {
-	        this.state.terminationObserver.onNext(TERMINATION_MSG);
+	        var terminationObserver = this.state.terminationObserver;
+
+	        terminationObserver.onNext(TERMINATION_MSG);
 	    },
+	    // !!! the following drag* methods shall be called only by the stream
+	    // processor in getInitialState()
 	    dragStart: function dragStart(intervalId, side, initialCoords, timeBeforeDrag) {
 	        this.setState((0, _utils.objectAssign)(this.state, {
 	            dragging: {
@@ -406,23 +408,24 @@
 	        }));
 	    },
 	    drag: function drag(newCoords) {
-	        var _state$dragging = this.state.dragging;
-	        var intervalId = _state$dragging.intervalId;
-	        var side = _state$dragging.side;
-	        var timeBeforeDrag = _state$dragging.timeBeforeDrag;
-	        var initialCoords = _state$dragging.initialCoords;
-	        var movedAfterDragStart = _state$dragging.movedAfterDragStart;
-	        var _props = this.props;
-	        var min = _props.min;
-	        var max = _props.max;
-	        var width = _props.width;
-	        var onStartChange = _props.onStartChange;
-	        var onEndChange = _props.onEndChange;
-	        var onIntervalDrag = _props.onIntervalDrag;
+	        var _state = this.state;
+	        var props = _state.props;
+	        var dragging = _state.dragging;
+	        var intervalId = dragging.intervalId;
+	        var side = dragging.side;
+	        var timeBeforeDrag = dragging.timeBeforeDrag;
+	        var initialCoords = dragging.initialCoords;
+	        var movedAfterDragStart = dragging.movedAfterDragStart;
+	        var min = props.min;
+	        var max = props.max;
+	        var width = props.width;
+	        var onStartChange = props.onStartChange;
+	        var onEndChange = props.onEndChange;
+	        var onIntervalDrag = props.onIntervalDrag;
 
 	        var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
 
-	        if (!this.state.dragging.movedAfterDragStart) {
+	        if (!movedAfterDragStart) {
 	            var cursorName = ({
 	                left: "w-resize",
 	                right: "e-resize",
@@ -443,10 +446,12 @@
 	        }
 	    },
 	    dragEnd: function dragEnd() {
-	        var onIntervalClick = this.props.onIntervalClick;
-	        var _state$dragging2 = this.state.dragging;
-	        var intervalId = _state$dragging2.intervalId;
-	        var movedAfterDragStart = _state$dragging2.movedAfterDragStart;
+	        var _state2 = this.state;
+	        var dragging = _state2.dragging;
+	        var props = _state2.props;
+	        var onIntervalClick = props.onIntervalClick;
+	        var intervalId = dragging.intervalId;
+	        var movedAfterDragStart = dragging.movedAfterDragStart;
 
 	        if (movedAfterDragStart) {
 	            (0, _globalCursor.unsetCursorToWholeDocument)(window.document);
@@ -459,20 +464,20 @@
 	        }));
 	    },
 	    render: function render() {
-	        var _this2 = this;
-
-	        var _props2 = this.props;
-	        var min = _props2.min;
-	        var max = _props2.max;
-	        var width = _props2.width;
-	        var intervals = _props2.intervals;
+	        var _state3 = this.state;
+	        var props = _state3.props;
+	        var mouseDownObserver = _state3.mouseDownObserver;
+	        var min = props.min;
+	        var max = props.max;
+	        var width = props.width;
+	        var intervals = props.intervals;
 
 	        var mappedIntervals = intervals.map(function (int, intIndex) {
 	            var start = width * (0, _timeFunctions.timeToPercentil)(min, max, int.from);
 	            var end = width * (0, _timeFunctions.timeToPercentil)(min, max, int.to);
 
 	            var leftHandleDragStart = function leftHandleDragStart(e) {
-	                _this2.state.mouseDownObserver.onNext({
+	                mouseDownObserver.onNext({
 	                    type: "mousedown",
 	                    intervalId: int.id,
 	                    side: "left",
@@ -483,7 +488,7 @@
 	                e.stopPropagation();
 	            };
 	            var rightHandleDragStart = function rightHandleDragStart(e) {
-	                _this2.state.mouseDownObserver.onNext({
+	                mouseDownObserver.onNext({
 	                    type: "mousedown",
 	                    intervalId: int.id,
 	                    side: "right",
@@ -494,7 +499,7 @@
 	                e.stopPropagation();
 	            };
 	            var intervalDragStart = function intervalDragStart(e) {
-	                _this2.state.mouseDownObserver.onNext({
+	                mouseDownObserver.onNext({
 	                    type: "mousedown",
 	                    intervalId: int.id,
 	                    side: "whole",
@@ -556,7 +561,7 @@
 
 /***/ },
 /* 4 */
-/***/ function(module, exports) {
+/***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
@@ -565,6 +570,8 @@
 	});
 	exports.objectAssign = objectAssign;
 	exports.arrayEqual = arrayEqual;
+
+	var _ = __webpack_require__(171);
 
 	function objectAssign(target, props) {
 	    for (var i in props) {
@@ -586,6 +593,9 @@
 	    return true;
 	}
 
+	var cloneDeep = _.cloneDeep;
+	exports.cloneDeep = cloneDeep;
+
 /***/ },
 /* 5 */
 /***/ function(module, exports, __webpack_require__) {
@@ -600,6 +610,20 @@
 	var rx = __webpack_require__(6);
 
 	__webpack_require__(9);
+
+	function getRemovedIds(oldIntervals, newIntervals) {
+	    var removed = [];
+	    outer: for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
+	        var oldId = oldIntervals[i].id;
+	        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
+	            if (oldId == newIntervals[j].id) {
+	                continue outer;
+	            }
+	        }
+	        removed.push(oldId);
+	    }
+	    return removed;
+	}
 
 	/**
 	 * Returns an rx observable and rx observers for input from
@@ -641,15 +665,35 @@
 	    var mouseDowns = new rx.Subject();
 	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
 	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-	    var removedElements = new rx.Subject();
+	    var propertyChanges = new rx.Subject();
 	    var terminationSubject = new rx.Subject();
 
 	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        var draggedElementRemoved = removedElements.filter(function (update) {
-	            return update.intervalId === e.intervalId;
+	        var draggedIntervalId = e.intervalId;
+
+	        var draggedElementRemoved = propertyChanges.filter(function (update) {
+	            var newProps = update.newProps;
+	            var oldProps = update.oldProps;
+
+	            var removedIds = getRemovedIds(oldProps.intervals, newProps.intervals);
+	            return !! ~removedIds.indexOf(draggedIntervalId);
+	        })["do"](function (x) {
+	            return console.log("dragged element removed");
 	        });
+
+	        var otherPropUpdates = propertyChanges.filter(function (update) {
+	            var newProps = update.newProps;
+	            var oldProps = update.oldProps;
+
+	            var removedIds = getRemovedIds(oldProps.intervals, newProps.intervals);
+	            return ! ~removedIds.indexOf(draggedIntervalId);
+	        })["do"](function (x) {
+	            return console.log("some other property changed");
+	        });
+
 	        var dragTermination = mouseUps.merge(draggedElementRemoved);
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination));
+
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination)).merge(otherPropUpdates); // should be mergeSeq
 	    });
 
 	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
@@ -657,7 +701,7 @@
 	    return {
 	        observable: terminatedMouseStream,
 	        mouseDownObserver: mouseDowns,
-	        elementRemovedObserver: removedElements,
+	        propertyChangeObserver: propertyChanges,
 	        terminationObserver: terminationSubject
 	    };
 	}

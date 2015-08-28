@@ -148,6 +148,20 @@
 
 	__webpack_require__(9);
 
+	function getRemovedIds(oldIntervals, newIntervals) {
+	    var removed = [];
+	    outer: for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
+	        var oldId = oldIntervals[i].id;
+	        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
+	            if (oldId == newIntervals[j].id) {
+	                continue outer;
+	            }
+	        }
+	        removed.push(oldId);
+	    }
+	    return removed;
+	}
+
 	/**
 	 * Returns an rx observable and rx observers for input from
 	 * the component.
@@ -188,15 +202,35 @@
 	    var mouseDowns = new rx.Subject();
 	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
 	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-	    var removedElements = new rx.Subject();
+	    var propertyChanges = new rx.Subject();
 	    var terminationSubject = new rx.Subject();
 
 	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        var draggedElementRemoved = removedElements.filter(function (update) {
-	            return update.intervalId === e.intervalId;
+	        var draggedIntervalId = e.intervalId;
+
+	        var draggedElementRemoved = propertyChanges.filter(function (update) {
+	            var newProps = update.newProps;
+	            var oldProps = update.oldProps;
+
+	            var removedIds = getRemovedIds(oldProps.intervals, newProps.intervals);
+	            return !! ~removedIds.indexOf(draggedIntervalId);
+	        })["do"](function (x) {
+	            return console.log("dragged element removed");
 	        });
+
+	        var otherPropUpdates = propertyChanges.filter(function (update) {
+	            var newProps = update.newProps;
+	            var oldProps = update.oldProps;
+
+	            var removedIds = getRemovedIds(oldProps.intervals, newProps.intervals);
+	            return ! ~removedIds.indexOf(draggedIntervalId);
+	        })["do"](function (x) {
+	            return console.log("some other property changed");
+	        });
+
 	        var dragTermination = mouseUps.merge(draggedElementRemoved);
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination));
+
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination)).merge(otherPropUpdates); // should be mergeSeq
 	    });
 
 	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
@@ -204,7 +238,7 @@
 	    return {
 	        observable: terminatedMouseStream,
 	        mouseDownObserver: mouseDowns,
-	        elementRemovedObserver: removedElements,
+	        propertyChangeObserver: propertyChanges,
 	        terminationObserver: terminationSubject
 	    };
 	}
