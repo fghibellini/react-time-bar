@@ -5,3 +5,16 @@ export function objectAssign(target, props) {
     }
     return target;
 }
+
+export function arrayEqual(xs, ys) {
+    var length = xs.length;
+    if (length !== ys.length) {
+        return false;
+    }
+    for (var i = 0; i < length; i++) {
+        if (xs[i] !== ys[i]) {
+            return false;
+        }
+    }
+    return true;
+}

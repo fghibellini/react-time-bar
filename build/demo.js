@@ -283,6 +283,20 @@
 	    return (0, _timeFunctions.minutesToStr)(t0InMinutes + deltaMinutes);
 	}
 
+	function getRemovedIds(oldIntervals, newIntervals) {
+	    var removed = [];
+	    outer: for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
+	        var oldId = oldIntervals[i].id;
+	        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
+	            if (oldId == newIntervals[j].id) {
+	                continue outer;
+	            }
+	        }
+	        removed.push(oldId);
+	    }
+	    return removed;
+	}
+
 	var TERMINATION_MSG = {};
 
 	var TimeBar = React.createClass({
@@ -309,6 +323,7 @@
 
 	        var observable = _setupRxLogic.observable;
 	        var mouseDownObserver = _setupRxLogic.mouseDownObserver;
+	        var elementRemovedObserver = _setupRxLogic.elementRemovedObserver;
 	        var terminationObserver = _setupRxLogic.terminationObserver;
 
 	        observable.subscribe(function (update) {
@@ -328,10 +343,30 @@
 	                } else if (update.type === "mouseup") {
 	                    // handle mouseup
 	                    _this.dragEnd();
+	                } else if (update.type === "propchange") {
+	                    // handle element property changed
+	                    console.log("a property has changed!");
+	                    //this.dragEnd();
+	                    //var newIds = newProps.intervals.map(int => int.id);
+	                    //if (intervalIds) {
+	                    //    var removed = getRemovedIds(intervalIds, newIds);
+	                    //    for (var i = 0, ii = removed.length; i < ii; i++) {
+	                    //        elementRemovedObserver.onNext({
+	                    //            intervalId: removed
+	                    //        });
+	                    //    }
+	                    //}
+	                    //if (!intervalIds || !arrayEqual(intervalIds, newIds)) {
+	                    //    this.state
+	                    //    this.setState(objectAssign(this.state, {
+	                    //        type: "elementRemoved",
+	                    //        intervalIds: newIds
+	                    //    }));
+	                    //}
 	                } else {
-	                    // handle other
-	                    console.error("unexpected branch reach");
-	                }
+	                        // handle other
+	                        console.error("unexpected branch reach");
+	                    }
 	        }, function (error) {
 	            console.log(error);
 	        }, function () {
@@ -341,8 +376,20 @@
 	        return {
 	            terminationObserver: terminationObserver,
 	            mouseDownObserver: mouseDownObserver,
-	            dragging: null
+	            elementRemovedObserver: elementRemovedObserver,
+	            dragging: null,
+	            intervals: this.props.intervals
 	        };
+	    },
+	    componentWillReceiveProps: function componentWillReceiveProps(newProps) {
+	        var _state = this.state;
+	        var intervalIds = _state.intervalIds;
+	        var propertyChangeObserver = _state.propertyChangeObserver;
+
+	        this.propertyChangeObserver({
+	            type: "propchange",
+	            newProps: newProps
+	        });
 	    },
 	    componentWillUnmount: function componentWillUnmount() {
 	        this.state.terminationObserver.onNext(TERMINATION_MSG);
@@ -517,12 +564,26 @@
 	    value: true
 	});
 	exports.objectAssign = objectAssign;
+	exports.arrayEqual = arrayEqual;
 
 	function objectAssign(target, props) {
 	    for (var i in props) {
 	        target[i] = props[i];
 	    }
 	    return target;
+	}
+
+	function arrayEqual(xs, ys) {
+	    var length = xs.length;
+	    if (length !== ys.length) {
+	        return false;
+	    }
+	    for (var i = 0; i < length; i++) {
+	        if (xs[i] !== ys[i]) {
+	            return false;
+	        }
+	    }
+	    return true;
 	}
 
 /***/ },
@@ -546,12 +607,13 @@
 	 *
 	 * The updates can be one of:
 	 *  - mousedown (md)
-	 *  - mouseups (mu)
 	 *  - mousemove (mm)
+	 *  - mouseups (mu)
+	 *  - element removed (er)
 	 *  - termination signal (tm)
 	 *
 	 * The updates follow this grammar:
-	 * (md (mm)* mu)* (md (mm)*)? tm
+	 * (md (mm)* (mu | er))* (md (mm)*)? tm
 	 *
 	 * mouseups & mousemoves
 	 * ---------------------
@@ -562,6 +624,11 @@
 	 * These are triggered by the component events since we
 	 * need to preserve information about on which element
 	 * the drag started.
+	 *
+	 * elementRemoved
+	 * --------------
+	 * Signals that one of the intervals was removed from
+	 * the passed prop.
 	 *
 	 * termination signal
 	 * ------------------
@@ -574,10 +641,15 @@
 	    var mouseDowns = new rx.Subject();
 	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
 	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+	    var removedElements = new rx.Subject();
 	    var terminationSubject = new rx.Subject();
 
 	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
+	        var draggedElementRemoved = removedElements.filter(function (update) {
+	            return update.intervalId === e.intervalId;
+	        });
+	        var dragTermination = mouseUps.merge(draggedElementRemoved);
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination));
 	    });
 
 	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
@@ -585,6 +657,7 @@
 	    return {
 	        observable: terminatedMouseStream,
 	        mouseDownObserver: mouseDowns,
+	        elementRemovedObserver: removedElements,
 	        terminationObserver: terminationSubject
 	    };
 	}

@@ -5,7 +5,7 @@ var React = require("react");
 
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './global-cursor';
 import { timeStrToMinutes, minutesToStr, timeToPercentil } from './time-functions';
-import { objectAssign } from './utils';
+import { objectAssign, arrayEqual } from './utils';
 import { setupRxLogic } from './rx-logic';
 
 function computeDeltaInMinutes(min, max, width, deltaPx) {
@@ -21,6 +21,21 @@ function modifyTimeByPixels(min, max, width, t0, deltaPx) {
     var t0InMinutes = timeStrToMinutes(t0);
 
     return minutesToStr(t0InMinutes + deltaMinutes);
+}
+
+function getRemovedIds(oldIntervals, newIntervals) {
+    var removed = [];
+    outer:
+    for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
+        var oldId = oldIntervals[i].id;
+        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
+            if (oldId == newIntervals[j].id) {
+                continue outer;
+            }
+        }
+        removed.push(oldId);
+    }
+    return removed;
 }
 
 var TERMINATION_MSG = {};
@@ -46,7 +61,7 @@ export var TimeBar = React.createClass({
         }))
     },
     getInitialState: function() {
-        var { observable, mouseDownObserver, terminationObserver } = setupRxLogic(window.document);
+        var { observable, mouseDownObserver, elementRemovedObserver, terminationObserver } = setupRxLogic(window.document);
 
         observable.subscribe(update => {
             if (update === TERMINATION_MSG) {
@@ -61,6 +76,26 @@ export var TimeBar = React.createClass({
             } else if (update.type === "mouseup") {
                 // handle mouseup
                 this.dragEnd();
+            } else if (update.type === "propchange") {
+                // handle element property changed
+                console.log("a property has changed!");
+                //this.dragEnd();
+                //var newIds = newProps.intervals.map(int => int.id);
+                //if (intervalIds) {
+                //    var removed = getRemovedIds(intervalIds, newIds);
+                //    for (var i = 0, ii = removed.length; i < ii; i++) {
+                //        elementRemovedObserver.onNext({
+                //            intervalId: removed
+                //        });
+                //    }
+                //}
+                //if (!intervalIds || !arrayEqual(intervalIds, newIds)) {
+                //    this.state
+                //    this.setState(objectAssign(this.state, {
+                //        type: "elementRemoved",
+                //        intervalIds: newIds
+                //    }));
+                //}
             } else {
                 // handle other
                 console.error("unexpected branch reach");
@@ -74,8 +109,17 @@ export var TimeBar = React.createClass({
         return {
             terminationObserver: terminationObserver,
             mouseDownObserver: mouseDownObserver,
-            dragging: null
+            elementRemovedObserver: elementRemovedObserver,
+            dragging: null,
+            intervals: this.props.intervals
         };
+    },
+    componentWillReceiveProps: function(newProps) {
+        var { intervalIds, propertyChangeObserver } = this.state;
+        this.propertyChangeObserver({
+            type: "propchange",
+            newProps: newProps
+        });
     },
     componentWillUnmount: function() {
         this.state.terminationObserver.onNext(TERMINATION_MSG);

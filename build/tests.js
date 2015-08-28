@@ -154,12 +154,13 @@
 	 *
 	 * The updates can be one of:
 	 *  - mousedown (md)
-	 *  - mouseups (mu)
 	 *  - mousemove (mm)
+	 *  - mouseups (mu)
+	 *  - element removed (er)
 	 *  - termination signal (tm)
 	 *
 	 * The updates follow this grammar:
-	 * (md (mm)* mu)* (md (mm)*)? tm
+	 * (md (mm)* (mu | er))* (md (mm)*)? tm
 	 *
 	 * mouseups & mousemoves
 	 * ---------------------
@@ -170,6 +171,11 @@
 	 * These are triggered by the component events since we
 	 * need to preserve information about on which element
 	 * the drag started.
+	 *
+	 * elementRemoved
+	 * --------------
+	 * Signals that one of the intervals was removed from
+	 * the passed prop.
 	 *
 	 * termination signal
 	 * ------------------
@@ -182,10 +188,15 @@
 	    var mouseDowns = new rx.Subject();
 	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
 	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+	    var removedElements = new rx.Subject();
 	    var terminationSubject = new rx.Subject();
 
 	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
+	        var draggedElementRemoved = removedElements.filter(function (update) {
+	            return update.intervalId === e.intervalId;
+	        });
+	        var dragTermination = mouseUps.merge(draggedElementRemoved);
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination));
 	    });
 
 	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
@@ -193,6 +204,7 @@
 	    return {
 	        observable: terminatedMouseStream,
 	        mouseDownObserver: mouseDowns,
+	        elementRemovedObserver: removedElements,
 	        terminationObserver: terminationSubject
 	    };
 	}

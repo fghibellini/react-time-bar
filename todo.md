@@ -5,7 +5,6 @@
 - cleanup (beware of drag state)
 - remove dependencies from bundle
 - angular binding
-- use rx for event handling
 - throttle drags
 - memoize the timeStrToMinutes() calls
 - ? minimal mouse-coordinate change before drag
