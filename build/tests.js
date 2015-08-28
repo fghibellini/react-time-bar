@@ -40,16 +40,15 @@
 /******/ 	return __webpack_require__(0);
 /******/ })
 /************************************************************************/
-/******/ ({
-
-/***/ 0:
+/******/ ([
+/* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var _srcRxLogic = __webpack_require__(173);
+	var _srcRxLogic = __webpack_require__(1);
 
-	var _eventSimulation = __webpack_require__(171);
+	var _eventSimulation = __webpack_require__(6);
 
 	var MouseEvent = window.MouseEvent;
 
@@ -133,122 +132,71 @@
 	});
 
 /***/ },
+/* 1 */
+/***/ function(module, exports, __webpack_require__) {
 
-/***/ 11:
-/***/ function(module, exports) {
+	"use strict";
 
-	// shim for using process in browser
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.setupRxLogic = setupRxLogic;
 
-	var process = module.exports = {};
-	var queue = [];
-	var draining = false;
-	var currentQueue;
-	var queueIndex = -1;
+	var rx = __webpack_require__(2);
 
-	function cleanUpNextTick() {
-	    draining = false;
-	    if (currentQueue.length) {
-	        queue = currentQueue.concat(queue);
-	    } else {
-	        queueIndex = -1;
-	    }
-	    if (queue.length) {
-	        drainQueue();
-	    }
+	__webpack_require__(5);
+
+	/**
+	 * Returns an rx observable and rx observers for input from
+	 * the component.
+	 *
+	 * The updates can be one of:
+	 *  - mousedown (md)
+	 *  - mouseups (mu)
+	 *  - mousemove (mm)
+	 *  - termination signal (tm)
+	 *
+	 * The updates follow this grammar:
+	 * (md (mm)* mu)* (md (mm)*)? tm
+	 *
+	 * mouseups & mousemoves
+	 * ---------------------
+	 * Mouse events from the document element.
+	 *
+	 * mousedowns
+	 * ----------
+	 * These are triggered by the component events since we
+	 * need to preserve information about on which element
+	 * the drag started.
+	 *
+	 * termination signal
+	 * ------------------
+	 * An update on this stream signals the component will be
+	 * unmounted.
+	 *
+	 */
+
+	function setupRxLogic(document) {
+	    var mouseDowns = new rx.Subject();
+	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
+	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+	    var terminationSubject = new rx.Subject();
+
+	    var mouseStream = mouseDowns.flatMap(function (e) {
+	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
+	    });
+
+	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
+
+	    return {
+	        observable: terminatedMouseStream,
+	        mouseDownObserver: mouseDowns,
+	        terminationObserver: terminationSubject
+	    };
 	}
-
-	function drainQueue() {
-	    if (draining) {
-	        return;
-	    }
-	    var timeout = setTimeout(cleanUpNextTick);
-	    draining = true;
-
-	    var len = queue.length;
-	    while(len) {
-	        currentQueue = queue;
-	        queue = [];
-	        while (++queueIndex < len) {
-	            currentQueue[queueIndex].run();
-	        }
-	        queueIndex = -1;
-	        len = queue.length;
-	    }
-	    currentQueue = null;
-	    draining = false;
-	    clearTimeout(timeout);
-	}
-
-	process.nextTick = function (fun) {
-	    var args = new Array(arguments.length - 1);
-	    if (arguments.length > 1) {
-	        for (var i = 1; i < arguments.length; i++) {
-	            args[i - 1] = arguments[i];
-	        }
-	    }
-	    queue.push(new Item(fun, args));
-	    if (queue.length === 1 && !draining) {
-	        setTimeout(drainQueue, 0);
-	    }
-	};
-
-	// v8 likes predictible objects
-	function Item(fun, array) {
-	    this.fun = fun;
-	    this.array = array;
-	}
-	Item.prototype.run = function () {
-	    this.fun.apply(null, this.array);
-	};
-	process.title = 'browser';
-	process.browser = true;
-	process.env = {};
-	process.argv = [];
-	process.version = ''; // empty string to avoid regexp issues
-	process.versions = {};
-
-	function noop() {}
-
-	process.on = noop;
-	process.addListener = noop;
-	process.once = noop;
-	process.off = noop;
-	process.removeListener = noop;
-	process.removeAllListeners = noop;
-	process.emit = noop;
-
-	process.binding = function (name) {
-	    throw new Error('process.binding is not supported');
-	};
-
-	// TODO(shtylman)
-	process.cwd = function () { return '/' };
-	process.chdir = function (dir) {
-	    throw new Error('process.chdir is not supported');
-	};
-	process.umask = function() { return 0; };
-
 
 /***/ },
-
-/***/ 168:
-/***/ function(module, exports) {
-
-	module.exports = function(module) {
-		if(!module.webpackPolyfill) {
-			module.deprecate = function() {};
-			module.paths = [];
-			// module.parent = undefined by default
-			module.children = [];
-			module.webpackPolyfill = 1;
-		}
-		return module;
-	}
-
-
-/***/ },
-
-/***/ 170:
+/* 2 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(module, global, process) {// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
@@ -10653,11 +10601,160 @@
 
 	}.call(this));
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(168)(module), (function() { return this; }()), __webpack_require__(11)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(3)(module), (function() { return this; }()), __webpack_require__(4)))
 
 /***/ },
+/* 3 */
+/***/ function(module, exports) {
 
-/***/ 171:
+	module.exports = function(module) {
+		if(!module.webpackPolyfill) {
+			module.deprecate = function() {};
+			module.paths = [];
+			// module.parent = undefined by default
+			module.children = [];
+			module.webpackPolyfill = 1;
+		}
+		return module;
+	}
+
+
+/***/ },
+/* 4 */
+/***/ function(module, exports) {
+
+	// shim for using process in browser
+
+	var process = module.exports = {};
+	var queue = [];
+	var draining = false;
+	var currentQueue;
+	var queueIndex = -1;
+
+	function cleanUpNextTick() {
+	    draining = false;
+	    if (currentQueue.length) {
+	        queue = currentQueue.concat(queue);
+	    } else {
+	        queueIndex = -1;
+	    }
+	    if (queue.length) {
+	        drainQueue();
+	    }
+	}
+
+	function drainQueue() {
+	    if (draining) {
+	        return;
+	    }
+	    var timeout = setTimeout(cleanUpNextTick);
+	    draining = true;
+
+	    var len = queue.length;
+	    while(len) {
+	        currentQueue = queue;
+	        queue = [];
+	        while (++queueIndex < len) {
+	            currentQueue[queueIndex].run();
+	        }
+	        queueIndex = -1;
+	        len = queue.length;
+	    }
+	    currentQueue = null;
+	    draining = false;
+	    clearTimeout(timeout);
+	}
+
+	process.nextTick = function (fun) {
+	    var args = new Array(arguments.length - 1);
+	    if (arguments.length > 1) {
+	        for (var i = 1; i < arguments.length; i++) {
+	            args[i - 1] = arguments[i];
+	        }
+	    }
+	    queue.push(new Item(fun, args));
+	    if (queue.length === 1 && !draining) {
+	        setTimeout(drainQueue, 0);
+	    }
+	};
+
+	// v8 likes predictible objects
+	function Item(fun, array) {
+	    this.fun = fun;
+	    this.array = array;
+	}
+	Item.prototype.run = function () {
+	    this.fun.apply(null, this.array);
+	};
+	process.title = 'browser';
+	process.browser = true;
+	process.env = {};
+	process.argv = [];
+	process.version = ''; // empty string to avoid regexp issues
+	process.versions = {};
+
+	function noop() {}
+
+	process.on = noop;
+	process.addListener = noop;
+	process.once = noop;
+	process.off = noop;
+	process.removeListener = noop;
+	process.removeAllListeners = noop;
+	process.emit = noop;
+
+	process.binding = function (name) {
+	    throw new Error('process.binding is not supported');
+	};
+
+	// TODO(shtylman)
+	process.cwd = function () { return '/' };
+	process.chdir = function (dir) {
+	    throw new Error('process.chdir is not supported');
+	};
+	process.umask = function() { return 0; };
+
+
+/***/ },
+/* 5 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var rx = __webpack_require__(2);
+
+	var noop = rx.helpers.noop;
+	var AnonymousObservable = rx.AnonymousObservable;
+	var fromPromise = rx.Observable.fromPromise;
+	var isPromise = rx.helpers.isPromise;
+
+	/**
+	 * Behaves the same way as takeUntil but it also returns the value
+	 * produced by the second observable.
+	 */
+	rx.Observable.prototype.takeUntilJoined = function takeUntilJoined(other) {
+	    var source = this;
+
+	    return new AnonymousObservable(function (observer) {
+	        isPromise(other) && (other = fromPromise(other));
+	        var disposable1 = source.subscribe(observer);
+
+	        var disposable2 = other.subscribe(function (terminationValue) {
+	            observer.onNext(terminationValue);
+	            observer.onCompleted();
+	        }, function (error) {
+	            observer.onError(error);
+	        }, noop);
+
+	        return function () {
+	            disposable1.dispose();
+	            disposable2.dispose();
+	        };
+	    });
+	};
+
+/***/ },
+/* 6 */
 /***/ function(module, exports) {
 
 	
@@ -10763,81 +10860,5 @@
 	    }
 	}
 
-/***/ },
-
-/***/ 172:
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	var rx = __webpack_require__(170);
-
-	var noop = rx.helpers.noop;
-	var AnonymousObservable = rx.AnonymousObservable;
-	var fromPromise = rx.Observable.fromPromise;
-	var isPromise = rx.helpers.isPromise;
-
-	/**
-	 * Behaves the same way as takeUntil but it also returns the value
-	 * produced by the second observable.
-	 */
-	rx.Observable.prototype.takeUntilJoined = function takeUntilJoined(other) {
-	    var source = this;
-
-	    return new AnonymousObservable(function (observer) {
-	        isPromise(other) && (other = fromPromise(other));
-	        var disposable1 = source.subscribe(observer);
-
-	        var disposable2 = other.subscribe(function (terminationValue) {
-	            observer.onNext(terminationValue);
-	            observer.onCompleted();
-	        }, function (error) {
-	            observer.onError(error);
-	        }, noop);
-
-	        return function () {
-	            disposable1.dispose();
-	            disposable2.dispose();
-	        };
-	    });
-	};
-
-/***/ },
-
-/***/ 173:
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-	exports.setupRxLogic = setupRxLogic;
-
-	var rx = __webpack_require__(170);
-
-	__webpack_require__(172);
-
-	function setupRxLogic(document) {
-	    var mouseDowns = new rx.Subject();
-	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
-	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-
-	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(mouseUps));
-	    });
-
-	    var terminationSubject = new rx.Subject();
-
-	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
-
-	    return {
-	        mouseDownObserver: mouseDowns,
-	        terminationObserver: terminationSubject,
-	        observable: terminatedMouseStream
-	    };
-	}
-
 /***/ }
-
-/******/ });
+/******/ ]);
