@@ -40,101 +40,123 @@
 /******/ 	return __webpack_require__(0);
 /******/ })
 /************************************************************************/
-/******/ ({
-
-/***/ 0:
+/******/ ([
+/* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var _srcRxLogic = __webpack_require__(5);
+	var _srcFunctionsUtils = __webpack_require__(3);
 
-	var _eventSimulation = __webpack_require__(172);
+	var rx = __webpack_require__(4);
 
-	var MouseEvent = window.MouseEvent;
-
-	describe("setupRxLogic", function () {
+	describe("inputStream", function () {
 
 	    /**
-	     * TODO
-	     *
-	     * Don't use the browser's document object or completely
-	     * remove the mouse events from the tests of the streams.
-	     *
-	     * In theory the users mouse events are also registered now.
+	     * Always only one update is being processed,
+	     * otherwise new δ calls could run
+	     * with the same state their source used.
+	     * (The state is set on return.)
 	     */
+	    it("new inputs don't interrupt the ones that are currently being processed", function (done) {
+	        var observer = new rx.Subject();
+	        var observable = (0, _srcFunctionsUtils.mergeInputs)([observer]);
 
-	    it("terminated by termination signal", function (done) {
-	        var document = window.document;
+	        var registeredActions = [];
 
-	        var _setupRxLogic = (0, _srcRxLogic.setupRxLogic)(document);
-
-	        var observable = _setupRxLogic.observable;
-	        var mouseDownObserver = _setupRxLogic.mouseDownObserver;
-	        var terminationObserver = _setupRxLogic.terminationObserver;
-
-	        var registered = [];
-
-	        observable.subscribe(function (update) {
-	            registered.push(update);
-	        }, function (error) {
-	            done(error);
-	        }, function (end) {
-	            var ids = registered.map(function (e) {
-	                return e.clientX;
-	            });
-	            expect(ids).toEqual([2, 3, 4, 5, undefined]);
+	        var check = function check() {
+	            expect(registeredActions).toEqual(["1 processing update", "1 computing new state", "2 processing update", "2 computing new state"]);
 	            done();
+	        };
+
+	        var subscription = observable.subscribe(function exampleDelta( /*state, */update) {
+	            if (update === 1) {
+	                // STEP 1: The first delta-fn call processes the update information.
+	                registeredActions.push(update + " processing update");
+	                // STEP 2: The first delta-fn call produces a new update but the new state was still not computed.
+	                if (update === 1) {
+	                    observer.onNext(2);
+	                }
+	                // STEP 3: The first delta call produces a new state, that is passed to the next delta-fn call.
+	                registeredActions.push(update + " computing new state");
+	            } else {
+	                registeredActions.push(update + " processing update");
+	                registeredActions.push(update + " computing new state");
+	            }
+
+	            if (registeredActions.length === 4) {
+	                subscription.dispose();
+	                check();
+	            }
+	        }, function (error) {
+	            throw error;
+	        }, function (end) {
+	            throw Error("Unexpected end of stream!");
 	        });
 
-	        (0, _eventSimulation.replayEvents)([new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 1 })), // 0
-	        new _eventSimulation.FakeMouseDown(mouseDownObserver, new MouseEvent("mousedown", { clientX: 2 })), // 1
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 3 })), // 2
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 4 })), // 3
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mouseup", { clientX: 5 })), // 4
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 6 })), // 4
-	        new _eventSimulation.TerminationSignal(terminationObserver) // 5
-	        ]);
-	    });
-
-	    it("terminated by mouseup", function (done) {
-	        var document = window.document;
-
-	        var _setupRxLogic2 = (0, _srcRxLogic.setupRxLogic)(document);
-
-	        var observable = _setupRxLogic2.observable;
-	        var mouseDownObserver = _setupRxLogic2.mouseDownObserver;
-	        var terminationObserver = _setupRxLogic2.terminationObserver;
-
-	        var registered = [];
-
-	        var disposable = observable.subscribe(function (update) {
-	            registered.push(update);
-	        }, function (error) {
-	            done(error);
-	        }, function (end) {
-	            var ids = registered.map(function (e) {
-	                return e.clientX;
-	            });
-	            expect(ids).toEqual([2, 3, 4, 5, undefined]);
-	            done();
-	        });
-
-	        (0, _eventSimulation.replayEvents)([new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 1 })), // 0
-	        new _eventSimulation.FakeMouseDown(mouseDownObserver, new MouseEvent("mousedown", { clientX: 2 })), // 1
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 3 })), // 2
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 4 })), // 3
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mouseup", { clientX: 5 })), // 4
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 6 })), // 4
-	        new _eventSimulation.FakeMouseEvent(document, new MouseEvent("mouseup", { clientX: 7 })), // 4
-	        new _eventSimulation.TerminationSignal(terminationObserver) // 5
-	        ]);
+	        observer.onNext(1);
 	    });
 	});
 
 /***/ },
+/* 1 */,
+/* 2 */
+/***/ function(module, exports) {
 
-/***/ 5:
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.timeStrToMinutes = timeStrToMinutes;
+	exports.minutesToStr = minutesToStr;
+	exports.timeToPercentil = timeToPercentil;
+
+	function parseDec(s) {
+	    return parseInt(s, 10);
+	}
+
+	/**
+	 * Converts a string of format "HH:MM" to the number
+	 * of minutes since 00:00.
+	 */
+
+	function timeStrToMinutes(str) {
+	    return str.split(":").map(parseDec).reduce(function (h, m) {
+	        return h * 60 + m;
+	    });
+	}
+
+	/**
+	 * Converts a number representing the number of minutes from midnight
+	 * to a string of format "HH:MM"
+	 */
+
+	function minutesToStr(minutes) {
+	    var remainderMinutes = minutes % 60;
+	    return Math.floor(minutes / 60) + ":" + (remainderMinutes > 10 ? remainderMinutes : "0" + remainderMinutes);
+	}
+
+	/**
+	 * Given the min and max of a time interval and a time t
+	 * it returns at which percentace of that time interval t lies.
+	 *
+	 * min, max and t are strings of format "HH:MM"
+	 *
+	 * returns a number between 0 and 1
+	 */
+
+	function timeToPercentil(min, max, t) {
+	    var minMinutes = timeStrToMinutes(min);
+	    var maxMinutes = timeStrToMinutes(max);
+	    var durationMinutes = maxMinutes - minMinutes;
+	    var tMinutes = timeStrToMinutes(t);
+	    var tFromStart = tMinutes - minMinutes;
+	    return tFromStart / durationMinutes;
+	}
+
+/***/ },
+/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -142,18 +164,29 @@
 	Object.defineProperty(exports, "__esModule", {
 	    value: true
 	});
-	exports.setupRxLogic = setupRxLogic;
+	exports.mergeInputs = mergeInputs;
+	exports.getRemovedIds = getRemovedIds;
+	exports.modifyTimeByPixels = modifyTimeByPixels;
 
-	var rx = __webpack_require__(6);
+	var _timeFunctions = __webpack_require__(2);
 
-	__webpack_require__(9);
+	var rx = __webpack_require__(4),
+	    mergeObservables = rx.Observable.merge;
+
+	var noop = rx.helpers.noop;
+
+	exports.noop = noop;
+
+	function mergeInputs(inputObservables) {
+	    return mergeObservables.apply(null, inputObservables).observeOn(rx.Scheduler["default"]);
+	}
 
 	function getRemovedIds(oldIntervals, newIntervals) {
 	    var removed = [];
-	    outer: for (var i = 0, ii = oldIntervals.length; i < ii; i++) {
-	        var oldId = oldIntervals[i].id;
-	        for (var j = 0, jj = newIntervals.length; j < jj; j++) {
-	            if (oldId == newIntervals[j].id) {
+	    outer: for (var i = 0, ii = oldIntervals.size; i < ii; i++) {
+	        var oldId = oldIntervals.get(i).id;
+	        for (var j = 0, jj = newIntervals.size; j < jj; j++) {
+	            if (oldId == newIntervals.get(j).id) {
 	                continue outer;
 	            }
 	        }
@@ -162,90 +195,23 @@
 	    return removed;
 	}
 
-	/**
-	 * Returns an rx observable and rx observers for input from
-	 * the component.
-	 *
-	 * The updates can be one of:
-	 *  - mousedown (md)
-	 *  - mousemove (mm)
-	 *  - mouseups (mu)
-	 *  - element removed (er)
-	 *  - termination signal (tm)
-	 *
-	 * The updates follow this grammar:
-	 * (md (mm)* (mu | er))* (md (mm)*)? tm
-	 *
-	 * mouseups & mousemoves
-	 * ---------------------
-	 * Mouse events from the document element.
-	 *
-	 * mousedowns
-	 * ----------
-	 * These are triggered by the component events since we
-	 * need to preserve information about on which element
-	 * the drag started.
-	 *
-	 * elementRemoved
-	 * --------------
-	 * Signals that one of the intervals was removed from
-	 * the passed prop.
-	 *
-	 * termination signal
-	 * ------------------
-	 * An update on this stream signals the component will be
-	 * unmounted.
-	 *
-	 */
+	function computeDeltaInMinutes(min, max, width, deltaPx) {
+	    var minMinutes = (0, _timeFunctions.timeStrToMinutes)(min);
+	    var maxMinutes = (0, _timeFunctions.timeStrToMinutes)(max);
+	    var intervalDuration = maxMinutes - minMinutes;
+	    var pixelDuration = intervalDuration / width;
+	    return Math.round(deltaPx * pixelDuration);
+	}
 
-	function setupRxLogic(document) {
-	    var mouseDowns = new rx.Subject();
-	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
-	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-	    var propertyChanges = new rx.Subject();
-	    var terminationSubject = new rx.Subject();
+	function modifyTimeByPixels(min, max, width, t0, deltaPx) {
+	    var deltaMinutes = computeDeltaInMinutes(min, max, width, deltaPx);
+	    var t0InMinutes = (0, _timeFunctions.timeStrToMinutes)(t0);
 
-	    var mouseStream = mouseDowns.flatMap(function (e) {
-	        var draggedIntervalId = e.intervalId;
-
-	        var draggedElementRemoved = propertyChanges.filter(function (update) {
-	            var newProps = update.newProps;
-	            var oldProps = update.oldProps;
-
-	            var removedIds = getRemovedIds(oldProps.intervals, newProps.intervals);
-	            return !! ~removedIds.indexOf(draggedIntervalId);
-	        })["do"](function (x) {
-	            return console.log("dragged element removed");
-	        });
-
-	        var otherPropUpdates = propertyChanges.filter(function (update) {
-	            var newProps = update.newProps;
-	            var oldProps = update.oldProps;
-
-	            var removedIds = getRemovedIds(oldProps.intervals, newProps.intervals);
-	            return ! ~removedIds.indexOf(draggedIntervalId);
-	        })["do"](function (x) {
-	            return console.log("some other property changed");
-	        });
-
-	        var dragTermination = mouseUps.merge(draggedElementRemoved);
-
-	        return rx.Observable["return"](e).concat(mouseMoves.takeUntilJoined(dragTermination)).merge(otherPropUpdates); // should be mergeSeq
-	    });
-
-	    var terminatedMouseStream = mouseStream.takeUntilJoined(terminationSubject);
-
-	    return {
-	        observable: terminatedMouseStream,
-	        mouseDownObserver: mouseDowns,
-	        propertyChangeObserver: propertyChanges,
-	        terminationObserver: terminationSubject
-	    };
+	    return (0, _timeFunctions.minutesToStr)(t0InMinutes + deltaMinutes);
 	}
 
 /***/ },
-
-/***/ 6:
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(module, global, process) {// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
@@ -10650,11 +10616,10 @@
 
 	}.call(this));
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(7)(module), (function() { return this; }()), __webpack_require__(8)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(5)(module), (function() { return this; }()), __webpack_require__(6)))
 
 /***/ },
-
-/***/ 7:
+/* 5 */
 /***/ function(module, exports) {
 
 	module.exports = function(module) {
@@ -10670,8 +10635,7 @@
 
 
 /***/ },
-
-/***/ 8:
+/* 6 */
 /***/ function(module, exports) {
 
 	// shim for using process in browser
@@ -10766,153 +10730,5 @@
 	process.umask = function() { return 0; };
 
 
-/***/ },
-
-/***/ 9:
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	var rx = __webpack_require__(6);
-
-	var noop = rx.helpers.noop;
-	var AnonymousObservable = rx.AnonymousObservable;
-	var fromPromise = rx.Observable.fromPromise;
-	var isPromise = rx.helpers.isPromise;
-
-	/**
-	 * Behaves the same way as takeUntil but it also returns the value
-	 * produced by the second observable.
-	 */
-	rx.Observable.prototype.takeUntilJoined = function takeUntilJoined(other) {
-	    var source = this;
-
-	    return new AnonymousObservable(function (observer) {
-	        isPromise(other) && (other = fromPromise(other));
-	        var disposable1 = source.subscribe(observer);
-
-	        var disposable2 = other.subscribe(function (terminationValue) {
-	            observer.onNext(terminationValue);
-	            observer.onCompleted();
-	        }, function (error) {
-	            observer.onError(error);
-	        }, noop);
-
-	        return function () {
-	            disposable1.dispose();
-	            disposable2.dispose();
-	        };
-	    });
-	};
-
-/***/ },
-
-/***/ 172:
-/***/ function(module, exports) {
-
-	
-	// ACTIONS
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-
-	var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
-
-	exports.replayEvents = replayEvents;
-
-	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-
-	var FakeMouseEvent = (function () {
-	    function FakeMouseEvent(target, obj) {
-	        _classCallCheck(this, FakeMouseEvent);
-
-	        this.target = target;
-	        this.obj = obj;
-	    }
-
-	    _createClass(FakeMouseEvent, [{
-	        key: "perform",
-	        value: function perform() {
-	            this.target.dispatchEvent(this.obj);
-	        }
-	    }]);
-
-	    return FakeMouseEvent;
-	})();
-
-	exports.FakeMouseEvent = FakeMouseEvent;
-
-	var TerminationSignal = (function () {
-	    function TerminationSignal(terminationObserver) {
-	        _classCallCheck(this, TerminationSignal);
-
-	        this.terminationObserver = terminationObserver;
-	    }
-
-	    _createClass(TerminationSignal, [{
-	        key: "perform",
-	        value: function perform() {
-	            this.terminationObserver.onNext({ type: "unmountSignal" });
-	        }
-	    }]);
-
-	    return TerminationSignal;
-	})();
-
-	exports.TerminationSignal = TerminationSignal;
-
-	var FakeMouseDown = (function () {
-	    function FakeMouseDown(mousedownObserver, update) {
-	        _classCallCheck(this, FakeMouseDown);
-
-	        this.mousedownObserver = mousedownObserver;
-	        this.update = update;
-	    }
-
-	    // FUNCTIONS
-
-	    _createClass(FakeMouseDown, [{
-	        key: "perform",
-	        value: function perform() {
-	            this.mousedownObserver.onNext(this.update);
-	        }
-	    }]);
-
-	    return FakeMouseDown;
-	})();
-
-	exports.FakeMouseDown = FakeMouseDown;
-
-	function replayEvents(eventSequence) {
-	    var _iteratorNormalCompletion = true;
-	    var _didIteratorError = false;
-	    var _iteratorError = undefined;
-
-	    try {
-	        for (var _iterator = eventSequence[Symbol.iterator](), _step; !(_iteratorNormalCompletion = (_step = _iterator.next()).done); _iteratorNormalCompletion = true) {
-	            var event = _step.value;
-
-	            event.perform();
-	        }
-	    } catch (err) {
-	        _didIteratorError = true;
-	        _iteratorError = err;
-	    } finally {
-	        try {
-	            if (!_iteratorNormalCompletion && _iterator["return"]) {
-	                _iterator["return"]();
-	            }
-	        } finally {
-	            if (_didIteratorError) {
-	                throw _iteratorError;
-	            }
-	        }
-	    }
-	}
-
 /***/ }
-
-/******/ });
+/******/ ]);

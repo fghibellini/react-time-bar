@@ -4,7 +4,7 @@
 @bar-color: #eeeeee;
 @border-color: #cccccc;
 @border-width: 2px;
-@movement-duration: 0.2s;
+@movement-duration: 0.05s;
 
 .user-select(@select) {
     -webkit-user-select: @select;
@@ -32,7 +32,9 @@
     height: 100%;
     border: @border-width solid @border-color;
     .user-select(none);
+ /* VERY LAGGY & CPU intensive
     transition: @movement-duration left ease-out, @movement-duration width ease-out;
+    will-change: left, width; */
 }
 
 .interval-handle {

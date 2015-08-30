@@ -1,74 +1,59 @@
 "use strict";
 
-import { setupRxLogic } from '../src/rx-logic';
-import { FakeMouseEvent, FakeMouseDown, TerminationSignal, replayEvents } from './event-simulation';
+var rx = require("rx");
 
-var MouseEvent = window.MouseEvent;
+import { mergeInputs } from '../src/functions/utils';
 
-describe("setupRxLogic", () => {
+describe("inputStream", () => {
 
     /**
-     * TODO
-     *
-     * Don't use the browser's document object or completely
-     * remove the mouse events from the tests of the streams.
-     *
-     * In theory the users mouse events are also registered now.
+     * Always only one update is being processed,
+     * otherwise new δ calls could run
+     * with the same state their source used.
+     * (The state is set on return.)
      */
+    it("new inputs don't interrupt the ones that are currently being processed", (done) => {
+        var observer = new rx.Subject();
+        var observable = mergeInputs([observer]);
 
-    it("terminated by termination signal", (done) => {
-        var document = window.document;
-        var { observable, mouseDownObserver, terminationObserver } = setupRxLogic(document);
+        var registeredActions = [];
 
-        var registered = [];
-
-        observable.subscribe(update => {
-            registered.push(update);
-        }, error => {
-            done(error);
-        }, end => {
-            var ids = registered.map(e => e.clientX);
-            expect(ids).toEqual([2,3,4,5,undefined]);
+        var check = () => {
+            expect(registeredActions).toEqual([
+                "1 processing update",
+                "1 computing new state",
+                "2 processing update",
+                "2 computing new state"
+            ]);
             done();
+        };
+
+        var subscription = observable.subscribe(function exampleDelta(/*state, */ update) {
+            if (update === 1) {
+                // STEP 1: The first delta-fn call processes the update information.
+                registeredActions.push(update + " processing update");
+                // STEP 2: The first delta-fn call produces a new update but the new state was still not computed.
+                if (update === 1) {
+                    observer.onNext(2);
+                }
+                // STEP 3: The first delta call produces a new state, that is passed to the next delta-fn call.
+                registeredActions.push(update + " computing new state");
+            } else {
+                registeredActions.push(update + " processing update");
+                registeredActions.push(update + " computing new state");
+            }
+
+            if (registeredActions.length === 4) {
+                subscription.dispose();
+                check();
+            }
+        }, error => {
+            throw error;
+        }, end => {
+            throw Error("Unexpected end of stream!");
         });
 
-        replayEvents([
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 1 })),         // 0
-            new FakeMouseDown(mouseDownObserver, new MouseEvent("mousedown", { clientX: 2 })), // 1
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 3 })),         // 2
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 4 })),         // 3
-            new FakeMouseEvent(document, new MouseEvent("mouseup",   { clientX: 5 })),         // 4
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 6 })),         // 4
-            new TerminationSignal(terminationObserver)                                         // 5
-        ]);
-    });
-
-    it("terminated by mouseup", (done) => {
-        var document = window.document;
-        var { observable, mouseDownObserver, terminationObserver } = setupRxLogic(document);
-
-        var registered = [];
-
-        var disposable = observable.subscribe(update => {
-            registered.push(update);
-        }, error => {
-            done(error);
-        }, end => {
-            var ids = registered.map(e => e.clientX);
-            expect(ids).toEqual([2,3,4,5,undefined]);
-            done();
-        });
-
-        replayEvents([
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 1 })),         // 0
-            new FakeMouseDown(mouseDownObserver, new MouseEvent("mousedown", { clientX: 2 })), // 1
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 3 })),         // 2
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 4 })),         // 3
-            new FakeMouseEvent(document, new MouseEvent("mouseup",   { clientX: 5 })),         // 4
-            new FakeMouseEvent(document, new MouseEvent("mousemove", { clientX: 6 })),         // 4
-            new FakeMouseEvent(document, new MouseEvent("mouseup",   { clientX: 7 })),         // 4
-            new TerminationSignal(terminationObserver)                                         // 5
-        ]);
+        observer.onNext(1);
     });
 
 });
