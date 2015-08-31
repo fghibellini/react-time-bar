@@ -1,10 +1,10 @@
 
 # TODO
 
+- dispose the state machine on unmount
 - guard & prevent default on global handlers
 - cleanup (beware of drag state)
 - remove dependencies from bundle
-- angular binding
 - throttle drags
 - memoize the timeStrToMinutes() calls
 - ? minimal mouse-coordinate change before drag

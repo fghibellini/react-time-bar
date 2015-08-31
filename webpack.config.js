@@ -1,7 +1,8 @@
 module.exports = {
     entry: {
-        demo: "./demo/main.js",
-        tests: "./test/main.js"
+        "tests": "./test/main.js",
+        "demos/basic": "./demos/basic/main.js",
+        "demos/angular-directive": "./demos/angular-directive/main.js"
     },
     output: {
         path: "./build/",

@@ -9,6 +9,8 @@ import { mergeInputs } from './functions/utils';
 import { TimeBarState, DraggingState, intervalsToImmutable, propsToImmutable } from './state';
 import { deltaFunction, TERMINATION_MSG } from './delta-function';
 
+var noop = rx.helpers.noop;
+
 export var TimeBar = React.createClass({
     displayName: "TimeBar",
     propTypes: {
@@ -28,6 +30,18 @@ export var TimeBar = React.createClass({
             to: React.PropTypes.string,
             className: React.PropTypes.string
         }))
+    },
+    getDefaultProps: function() {
+        return {
+            min: "8:00",
+            max: "18:00",
+            width: 800,
+            onStartChange: noop,
+            onEndChange: noop,
+            onIntervalClick: noop,
+            onIntervalDrag: noop,
+            intervals: []
+        };
     },
     getInitialState: function() {
         var initialProps = propsToImmutable(this.props);

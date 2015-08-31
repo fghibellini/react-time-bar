@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>React time-bar angular directive demo</title>
+    </head>
+    <body>
+        <h1>React time-bar angular directive demo</h1>
+
+        <div ng-app="angularDirectiveDemo" ng-controller="onlyController">
+            <react-time-bar min="'8:00'"
+                     max="'18:00'"
+                     width="800"
+                     intervals="bunchOfIntervals"
+                     on-interval-click="onIntervalClick"
+                     on-interval-drag="onIntervalDrag" />,
+        </div>
+
+        <pre id="intervals"></pre>
+        <script src="../../build/demos/angular-directive.js"></script>
+    </body>
+</html>

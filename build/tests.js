@@ -46,9 +46,9 @@
 
 	"use strict";
 
-	var _srcFunctionsUtils = __webpack_require__(3);
+	var _srcFunctionsUtils = __webpack_require__(12);
 
-	var rx = __webpack_require__(4);
+	var rx = __webpack_require__(13);
 
 	describe("inputStream", function () {
 
@@ -99,8 +99,7 @@
 	});
 
 /***/ },
-/* 1 */,
-/* 2 */
+/* 1 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -156,7 +155,32 @@
 	}
 
 /***/ },
-/* 3 */
+/* 2 */,
+/* 3 */,
+/* 4 */,
+/* 5 */,
+/* 6 */,
+/* 7 */,
+/* 8 */,
+/* 9 */
+/***/ function(module, exports) {
+
+	module.exports = function(module) {
+		if(!module.webpackPolyfill) {
+			module.deprecate = function() {};
+			module.paths = [];
+			// module.parent = undefined by default
+			module.children = [];
+			module.webpackPolyfill = 1;
+		}
+		return module;
+	}
+
+
+/***/ },
+/* 10 */,
+/* 11 */,
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -168,9 +192,9 @@
 	exports.getRemovedIds = getRemovedIds;
 	exports.modifyTimeByPixels = modifyTimeByPixels;
 
-	var _timeFunctions = __webpack_require__(2);
+	var _timeFunctions = __webpack_require__(1);
 
-	var rx = __webpack_require__(4),
+	var rx = __webpack_require__(13),
 	    mergeObservables = rx.Observable.merge;
 
 	var noop = rx.helpers.noop;
@@ -211,7 +235,7 @@
 	}
 
 /***/ },
-/* 4 */
+/* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
 	var __WEBPACK_AMD_DEFINE_RESULT__;/* WEBPACK VAR INJECTION */(function(module, global, process) {// Copyright (c) Microsoft Open Technologies, Inc. All rights reserved. See License.txt in the project root for license information.
@@ -10616,26 +10640,10 @@
 
 	}.call(this));
 
-	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(5)(module), (function() { return this; }()), __webpack_require__(6)))
+	/* WEBPACK VAR INJECTION */}.call(exports, __webpack_require__(9)(module), (function() { return this; }()), __webpack_require__(14)))
 
 /***/ },
-/* 5 */
-/***/ function(module, exports) {
-
-	module.exports = function(module) {
-		if(!module.webpackPolyfill) {
-			module.deprecate = function() {};
-			module.paths = [];
-			// module.parent = undefined by default
-			module.children = [];
-			module.webpackPolyfill = 1;
-		}
-		return module;
-	}
-
-
-/***/ },
-/* 6 */
+/* 14 */
 /***/ function(module, exports) {
 
 	// shim for using process in browser
