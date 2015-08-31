@@ -43,16 +43,15 @@ export var TimeBar = React.createClass({
             intervals: []
         };
     },
-    getInitialState: function() {
-        var initialProps = propsToImmutable(this.props);
-
+    getAllInputs: function() {
         var document = window.document;
         var componentInputs = this.inputObserver = new rx.Subject();
         var mouseUps   = rx.Observable.fromEvent(document, 'mouseup');
         var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
 
-        var allInputs = mergeInputs([componentInputs, mouseUps, mouseMoves]);
-
+        return mergeInputs([componentInputs, mouseUps, mouseMoves]);
+    },
+    setupStateMachine: function(allInputs, deltaFunction) {
         var SM_Subscription = allInputs.subscribe(update => {
             // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
             var { state, inputObserver } = this;
@@ -65,6 +64,12 @@ export var TimeBar = React.createClass({
         }, () => {
             // noop
         });
+    },
+    getInitialState: function() {
+        var initialProps = propsToImmutable(this.props);
+
+        var allInputs = this.getAllInputs();
+        this.setupStateMachine(allInputs, deltaFunction);
 
         return new TimeBarState({
             dragging: null,

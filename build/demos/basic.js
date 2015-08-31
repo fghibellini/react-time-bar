@@ -12962,24 +12962,23 @@
 	            intervals: []
 	        };
 	    },
-	    getInitialState: function getInitialState() {
-	        var _this = this;
-
-	        var initialProps = (0, _state2.propsToImmutable)(this.props);
-
+	    getAllInputs: function getAllInputs() {
 	        var document = window.document;
 	        var componentInputs = this.inputObserver = new rx.Subject();
 	        var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
 	        var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
 
-	        var allInputs = (0, _functionsUtils.mergeInputs)([componentInputs, mouseUps, mouseMoves]);
+	        return (0, _functionsUtils.mergeInputs)([componentInputs, mouseUps, mouseMoves]);
+	    },
+	    setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
+	        var _this = this;
 
-	        allInputs.subscribe(function (update) {
+	        var SM_Subscription = allInputs.subscribe(function (update) {
 	            // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
 	            var state = _this.state;
 	            var inputObserver = _this.inputObserver;
 
-	            var newState = (0, _deltaFunction.deltaFunction)(state, update, inputObserver);
+	            var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
 	            if (newState !== state) {
 	                _this.replaceState(newState);
 	            }
@@ -12988,6 +12987,12 @@
 	        }, function () {
 	            // noop
 	        });
+	    },
+	    getInitialState: function getInitialState() {
+	        var initialProps = (0, _state2.propsToImmutable)(this.props);
+
+	        var allInputs = this.getAllInputs();
+	        this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
 
 	        return new _state2.TimeBarState(_extends({
 	            dragging: null
@@ -28728,7 +28733,7 @@
 	    return newState;
 	}
 
-	function deltaFunction(state, input, stream) {
+	function deltaFunction(state, input, stream, terminate) {
 	    var dragging = state.dragging;
 
 	    var newState = state;
@@ -28737,6 +28742,7 @@
 	        if (dragging) {
 	            newState = dragEnd(state);
 	        }
+	        terminate();
 	    } else if (input.type === "mousedown") {
 	        var intervalId = input.intervalId;
 	        var side = input.side;
