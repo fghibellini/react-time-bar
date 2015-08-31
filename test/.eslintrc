@@ -9,6 +9,8 @@
     "globals": {
         "window": true,
         "describe": true,
+        "beforeEach": true,
+        "afterEach": true,
         "expect": true,
         "it": true,
         "xit": true

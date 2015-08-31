@@ -41,6 +41,10 @@ angular.module("react-timebar", [])
                     element[0]
                 );
             }, true);
+
+            //element.on('$destroy', () => {
+            //    React.unmountComponentAtNode(element[0]);
+            //});
         }
     };
 });

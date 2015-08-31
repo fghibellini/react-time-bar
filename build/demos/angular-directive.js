@@ -41627,6 +41627,10 @@
 
 	                React.render(React.createElement(_component.TimeBar, withWrappedFunctions), element[0]);
 	            }, true);
+
+	            //element.on('$destroy', () => {
+	            //    React.unmountComponentAtNode(element[0]);
+	            //});
 	        }
 	    };
 	});

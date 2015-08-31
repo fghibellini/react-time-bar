@@ -1,9 +1,14 @@
 "use strict";
 
 var rx = require("rx");
+var angular = require("angular");
+var angularMock = require('angular-mocks/ngMock');
+
+require("../src/angular-directive");
 
 import { mergeInputs } from '../src/functions/utils';
 import { TimeBar } from '../src/component';
+import { getNewDocument } from './utils';
 
 describe("inputStream", () => {
 
@@ -85,6 +90,68 @@ describe("state machine", () => {
             ]);
             done();
         }, 50);
+    });
+
+});
+
+describe("angular component", () => {
+
+    var document, dispose;
+
+    beforeEach(() => {
+        // don't shit where you eat
+        ({ document, dispose } = getNewDocument());
+    });
+
+    afterEach(() => {
+        if (document) {
+            dispose();
+            document = null;
+            dispose = null;
+        }
+    });
+
+    function genTimeBarSet(iterator) {
+        var start = 8;
+        var duration = 2;
+        var maxDistanceFromStart = 18 - duration - start;
+        var nthStart = n => start + ((iterator + n) % maxDistanceFromStart) + ":00";
+        var nthEnd   = n => start + ((iterator + n) % maxDistanceFromStart) + duration + ":00";
+
+        return [0,1,2,3].map(n => {
+            return { ints: [ { id: 0, from: nthStart(n), to: nthEnd(n) } ] };
+        });
+    }
+
+    it("generate and destroy a lot of components", (done) => {
+        var dom = angular.element('<div id="test1-dom" ng-controller="ctlr1"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>');
+        angular.element(document.body).append(dom);
+
+        var app = angular.module("test1", ['react-timebar'/*, angularMock*/])
+        .controller("ctlr1", $scope => {
+            var iterations = 4;
+
+            rx.Observable
+                .interval(200)
+                .timeInterval()
+                .take(iterations + 1)
+                .subscribe(update => {
+                    $scope.$apply(() => {
+                        console.log("update!");
+                        if (update.value < iterations) {
+                            var i = update.value;
+                            $scope.timebars = genTimeBarSet(i);
+                        } else {
+                            // TODO check a criteria that ckecks that even
+                            var elements = document.getElementsByClassName("time-bar");
+                            expect(elements.length).toEqual(4);
+                            done();
+                        }
+                    });
+                });
+        });
+
+        angular.bootstrap(dom, ['test1']);
     });
 
 });
