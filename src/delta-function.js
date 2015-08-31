@@ -55,7 +55,7 @@ function dragEnd(state) {
     return newState;
 }
 
-export function deltaFunction(state, input, stream) {
+export function deltaFunction(state, input, stream, terminate) {
     var { dragging } = state;
 
     var newState = state;
@@ -64,6 +64,7 @@ export function deltaFunction(state, input, stream) {
         if (dragging) {
             newState = dragEnd(state);
         }
+        terminate();
     } else if (input.type === "mousedown") {
         var { intervalId, side, initialCoords, timeBeforeDrag } = input;
         newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);

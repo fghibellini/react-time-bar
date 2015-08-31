@@ -53,10 +53,10 @@ export var TimeBar = React.createClass({
 
         var allInputs = mergeInputs([componentInputs, mouseUps, mouseMoves]);
 
-        allInputs.subscribe(update => {
+        var SM_Subscription = allInputs.subscribe(update => {
             // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
             var { state, inputObserver } = this;
-            var newState = deltaFunction(state, update, inputObserver);
+            var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
             if (newState !== state) {
                 this.replaceState(newState);
             }
