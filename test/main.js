@@ -8,7 +8,7 @@ var angularMock = require('angular-mocks/ngMock');
 require("../src/angular-directive");
 
 import { mergeInputs } from '../src/functions/utils';
-import { TimeBar } from '../src/component';
+import { getTimeBarComponent } from '../src/component';
 import { getNewDocument } from './utils';
 
 var mockModule = window.module;
@@ -81,7 +81,7 @@ describe("state machine", () => {
                 terminate();
         };
 
-        TimeBar.prototype.setupStateMachine(observer, spyDelta);
+        getTimeBarComponent().prototype.setupStateMachine(observer, spyDelta);
 
         observer.onNext(1);
         observer.onNext(2); // this is the termination signal
@@ -100,21 +100,6 @@ describe("state machine", () => {
 
 describe("angular component", () => {
 
-    var document, dispose;
-
-    //beforeEach(() => {
-    //    // don't shit where you eat
-    //    ({ document, dispose } = getNewDocument());
-    //});
-
-    //afterEach(() => {
-    //    if (document) {
-    //        dispose();
-    //        document = null;
-    //        dispose = null;
-    //    }
-    //});
-
     function genTimeBarSet(iterator) {
         var start = 8;
         var duration = 2;
@@ -128,17 +113,15 @@ describe("angular component", () => {
     }
 
     it("generate and destroy a lot of components", (done) => {
-        var document = window.document;
+        var mouseEvents = new rx.Subject();
 
         mockModule('react-timebar', function($provide) {
-            console.log("got provide!");
-            $provide.value("$document", { value: "ahoj" });
+            $provide.value('reactTimeBar.Inputs', mouseEvents);
         });
 
         mockInject(function($compile, $rootScope) {
             var scope = $rootScope.$new();
             var dom = $compile('<div id="test1-dom"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>')(scope);
-
             var iterations = 5;
 
             rx.Observable
@@ -147,15 +130,21 @@ describe("angular component", () => {
                 .take(iterations + 1)
                 .subscribe(update => {
                     scope.$apply(() => {
-                        console.log("update!");
                         if (update.value < iterations) {
                             var i = update.value;
                             scope.timebars = genTimeBarSet(i);
                         } else {
-                            // TODO check a criteria that ckecks that even
                             var elements = dom.find(".time-bar");
                             expect(elements.size()).toEqual(4);
-                            done();
+                            expect(mouseEvents.observers.length).toEqual(4);
+
+                            dom.remove();
+                            scope.$destroy();
+
+                            setTimeout(() => {
+                                expect(mouseEvents.observers.length).toEqual(0);
+                                done();
+                            }, 200);
                         }
                     });
                 });

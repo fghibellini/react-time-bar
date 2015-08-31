@@ -12918,6 +12918,9 @@
 
 	var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
+	exports.inputStreamsFromDocument = inputStreamsFromDocument;
+	exports.getTimeBarComponent = getTimeBarComponent;
+
 	var _functionsTimeFunctions = __webpack_require__(1);
 
 	var _functionsUtils = __webpack_require__(12);
@@ -12933,136 +12936,148 @@
 
 	var noop = rx.helpers.noop;
 
-	var TimeBar = React.createClass({
-	    displayName: "TimeBar",
-	    propTypes: {
-	        min: React.PropTypes.string,
-	        max: React.PropTypes.string,
-	        width: React.PropTypes.number,
-	        onStartChange: React.PropTypes.func,
-	        onEndChange: React.PropTypes.func,
-	        onIntervalClick: React.PropTypes.func,
-	        onIntervalDrag: React.PropTypes.func,
-	        intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
-	            id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
-	            from: React.PropTypes.string,
-	            to: React.PropTypes.string,
-	            className: React.PropTypes.string
-	        }))
-	    },
-	    getDefaultProps: function getDefaultProps() {
-	        return {
-	            min: "8:00",
-	            max: "18:00",
-	            width: 800,
-	            onStartChange: noop,
-	            onEndChange: noop,
-	            onIntervalClick: noop,
-	            onIntervalDrag: noop,
-	            intervals: []
-	        };
-	    },
-	    getAllInputs: function getAllInputs() {
-	        var document = window.document;
-	        var componentInputs = this.inputObserver = new rx.Subject();
-	        var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
-	        var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+	function inputStreamsFromDocument(document) {
+	    var mouseUps = rx.Observable.fromEvent(document, 'mouseup');
+	    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
+	    return rx.Observable.merge([mouseUps, mouseMoves]);
+	}
 
-	        return (0, _functionsUtils.mergeInputs)([componentInputs, mouseUps, mouseMoves]);
-	    },
-	    setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
-	        var _this = this;
+	function getTimeBarComponent(inputStreams) {
 
-	        var SM_Subscription = allInputs.subscribe(function (update) {
-	            // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
-	            var state = _this.state;
-	            var inputObserver = _this.inputObserver;
+	    inputStreams = inputStreams || inputStreamsFromDocument(window.document);
 
-	            var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
-	            if (newState !== state) {
-	                _this.replaceState(newState);
-	            }
-	        }, function (error) {
-	            console.error(error);
-	        }, function () {
-	            // noop
-	        });
-	    },
-	    getInitialState: function getInitialState() {
-	        var initialProps = (0, _state2.propsToImmutable)(this.props);
-
-	        var allInputs = this.getAllInputs();
-	        this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
-
-	        return new _state2.TimeBarState(_extends({
-	            dragging: null
-	        }, initialProps.toObject()));
-	    },
-	    componentWillReceiveProps: function componentWillReceiveProps(newProps) {
-	        var inputObserver = this.inputObserver;
-
-	        var newPropUpdate = {
-	            type: "propchange",
-	            newProps: (0, _state2.propsToImmutable)(newProps)
-	        };
-	        inputObserver.onNext(newPropUpdate);
-	    },
-	    componentWillUnmount: function componentWillUnmount() {
-	        var inputObserver = this.inputObserver;
-
-	        inputObserver.onNext(_deltaFunction.TERMINATION_MSG);
-	    },
-	    render: function render() {
-	        var _state = this.state;
-	        var min = _state.min;
-	        var max = _state.max;
-	        var width = _state.width;
-	        var intervals = _state.intervals;
-	        var inputObserver = this.inputObserver;
-
-	        var mappedIntervals = intervals.map(function (interval, intIndex) {
-	            var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.from);
-	            var end = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.to);
-
-	            var mouseDownHandlerGen = function mouseDownHandlerGen(side, timeBeforeDrag) {
-	                return function (e) {
-	                    inputObserver.onNext({
-	                        type: "mousedown",
-	                        intervalId: interval.id,
-	                        side: side,
-	                        initialCoords: { x: e.clientX, y: e.clientY },
-	                        timeBeforeDrag: timeBeforeDrag
-	                    });
-	                    e.preventDefault();
-	                    e.stopPropagation();
-	                };
+	    return React.createClass({
+	        displayName: "TimeBar",
+	        propTypes: {
+	            min: React.PropTypes.string,
+	            max: React.PropTypes.string,
+	            width: React.PropTypes.number,
+	            onStartChange: React.PropTypes.func,
+	            onEndChange: React.PropTypes.func,
+	            onIntervalClick: React.PropTypes.func,
+	            onIntervalDrag: React.PropTypes.func,
+	            intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
+	                id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
+	                from: React.PropTypes.string,
+	                to: React.PropTypes.string,
+	                className: React.PropTypes.string
+	            }))
+	        },
+	        getDefaultProps: function getDefaultProps() {
+	            return {
+	                min: "8:00",
+	                max: "18:00",
+	                width: 800,
+	                onStartChange: noop,
+	                onEndChange: noop,
+	                onIntervalClick: noop,
+	                onIntervalDrag: noop,
+	                intervals: []
 	            };
+	        },
+	        getAllInputs: function getAllInputs() {
+	            var componentInputs = this.inputObserver = new rx.Subject();
+	            return (0, _functionsUtils.mergeInputs)([componentInputs, inputStreams]);
+	        },
+	        setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
+	            var _this = this;
 
-	            var leftHandleDragStart = mouseDownHandlerGen("left", interval.from);
-	            var rightHandleDragStart = mouseDownHandlerGen("right", interval.to);
-	            var intervalDragStart = mouseDownHandlerGen("whole", interval.from);
+	            var SM_Subscription = allInputs.subscribe(function (update) {
+	                if (!update) console.log("UNDEFINED INPUT!!!!");
+	                // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
+	                var state = _this.state;
+	                var inputObserver = _this.inputObserver;
+
+	                var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
+	                if (newState !== state) {
+	                    _this.replaceState(newState);
+	                }
+	            }, function (error) {
+	                console.error(error);
+	            }, function () {
+	                // noop
+	            });
+	        },
+	        getInitialState: function getInitialState() {
+	            var initialProps = (0, _state2.propsToImmutable)(this.props);
+
+	            var allInputs = this.getAllInputs();
+	            this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
+
+	            return new _state2.TimeBarState(_extends({
+	                dragging: null
+	            }, initialProps.toObject()));
+	        },
+	        componentWillReceiveProps: function componentWillReceiveProps(newProps) {
+	            var inputObserver = this.inputObserver;
+
+	            var newPropUpdate = {
+	                type: "propchange",
+	                newProps: (0, _state2.propsToImmutable)(newProps)
+	            };
+	            inputObserver.onNext(newPropUpdate);
+	        },
+	        componentWillUnmount: function componentWillUnmount() {
+	            var inputObserver = this.inputObserver;
+
+	            inputObserver.onNext(_state2.TERMINATION_MSG);
+	        },
+	        render: function render() {
+	            var _state = this.state;
+	            var min = _state.min;
+	            var max = _state.max;
+	            var width = _state.width;
+	            var intervals = _state.intervals;
+	            var inputObserver = this.inputObserver;
+
+	            var mappedIntervals = intervals.map(function (interval, intIndex) {
+	                var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.from);
+	                var end = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.to);
+
+	                var mouseDownHandlerGen = function mouseDownHandlerGen(side, timeBeforeDrag) {
+	                    return function (e) {
+	                        inputObserver.onNext({
+	                            type: "mousedown",
+	                            intervalId: interval.id,
+	                            side: side,
+	                            initialCoords: { x: e.clientX, y: e.clientY },
+	                            timeBeforeDrag: timeBeforeDrag
+	                        });
+	                        e.preventDefault();
+	                        e.stopPropagation();
+	                    };
+	                };
+
+	                var leftHandleDragStart = mouseDownHandlerGen("left", interval.from);
+	                var rightHandleDragStart = mouseDownHandlerGen("right", interval.to);
+	                var intervalDragStart = mouseDownHandlerGen("whole", interval.from);
+
+	                return React.createElement(
+	                    "div",
+	                    { className: ["interval", interval.className].join(" "),
+	                        key: interval.id,
+	                        onMouseDown: intervalDragStart,
+	                        style: { left: start, width: end - start } },
+	                    React.createElement("div", { className: "interval-handle interval-handle-left",
+	                        onMouseDown: leftHandleDragStart }),
+	                    React.createElement("div", { className: "interval-handle interval-handle-right",
+	                        onMouseDown: rightHandleDragStart })
+	                );
+	            });
 
 	            return React.createElement(
 	                "div",
-	                { className: ["interval", interval.className].join(" "),
-	                    key: interval.id,
-	                    onMouseDown: intervalDragStart,
-	                    style: { left: start, width: end - start } },
-	                React.createElement("div", { className: "interval-handle interval-handle-left",
-	                    onMouseDown: leftHandleDragStart }),
-	                React.createElement("div", { className: "interval-handle interval-handle-right",
-	                    onMouseDown: rightHandleDragStart })
+	                { className: "time-bar",
+	                    style: { width: width } },
+	                mappedIntervals
 	            );
-	        });
+	        }
+	    });
+	}
 
-	        return React.createElement(
-	            "div",
-	            { className: "time-bar",
-	                style: { width: width } },
-	            mappedIntervals
-	        );
-	    }
-	});
+	;
+
+	var TimeBar = window && window.document ? getTimeBarComponent() : null;
 	exports.TimeBar = TimeBar;
 
 /***/ },

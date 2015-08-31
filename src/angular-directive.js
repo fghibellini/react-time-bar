@@ -2,7 +2,7 @@
 var React = require("react");
 var angular = require("angular");
 
-import { TimeBar } from './component';
+import { getTimeBarComponent } from './component';
 
 function bindToScope(scope, fn) {
     return function() {
@@ -13,14 +13,21 @@ function bindToScope(scope, fn) {
     };
 }
 
+function getOptionalDependency($injector, dependencyDescriptor) {
+    try {
+        return $injector.get(dependencyDescriptor);
+    } catch (e) {
+        return null;
+    }
+}
+
 angular.module("react-timebar", [])
 
-.directive("reactTimeBar", ($document) => {
-    console.log("got document: ");
-    console.log($document);
+.directive("reactTimeBar", ($injector) => {
+    var inputStreams = getOptionalDependency($injector, 'reactTimeBar.Inputs');
+    var TimeBar = getTimeBarComponent(inputStreams);
     return {
         link: (scope, element, attributes) => {
-            console.log("linking directive!");
             var propNames = Object.keys(TimeBar.propTypes);
 
             scope.$watch(() => {
@@ -44,9 +51,9 @@ angular.module("react-timebar", [])
                 );
             }, true);
 
-            //element.on('$destroy', () => {
-            //    React.unmountComponentAtNode(element[0]);
-            //});
+            element.on('$destroy', () => {
+                React.unmountComponentAtNode(element[0]);
+            });
         }
     };
 });
