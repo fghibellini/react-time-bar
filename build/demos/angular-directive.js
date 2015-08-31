@@ -41582,10 +41582,12 @@
 	    };
 	}
 
-	angular.module("react-timebar", []).directive("reactTimeBar", function () {
+	angular.module("react-timebar", []).directive("reactTimeBar", function ($document) {
+	    console.log("got document: ");
+	    console.log($document);
 	    return {
 	        link: function link(scope, element, attributes) {
-
+	            console.log("linking directive!");
 	            var propNames = Object.keys(_component.TimeBar.propTypes);
 
 	            scope.$watch(function () {

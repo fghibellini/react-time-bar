@@ -1,5 +1,6 @@
 "use strict";
 
+var $ = window.jQuery = require("jquery"); // publish jQuery so that angular can pick it
 var rx = require("rx");
 var angular = require("angular");
 var angularMock = require('angular-mocks/ngMock');
@@ -9,6 +10,9 @@ require("../src/angular-directive");
 import { mergeInputs } from '../src/functions/utils';
 import { TimeBar } from '../src/component';
 import { getNewDocument } from './utils';
+
+var mockModule = window.module;
+var mockInject = window.inject;
 
 describe("inputStream", () => {
 
@@ -98,18 +102,18 @@ describe("angular component", () => {
 
     var document, dispose;
 
-    beforeEach(() => {
-        // don't shit where you eat
-        ({ document, dispose } = getNewDocument());
-    });
+    //beforeEach(() => {
+    //    // don't shit where you eat
+    //    ({ document, dispose } = getNewDocument());
+    //});
 
-    afterEach(() => {
-        if (document) {
-            dispose();
-            document = null;
-            dispose = null;
-        }
-    });
+    //afterEach(() => {
+    //    if (document) {
+    //        dispose();
+    //        document = null;
+    //        dispose = null;
+    //    }
+    //});
 
     function genTimeBarSet(iterator) {
         var start = 8;
@@ -124,34 +128,38 @@ describe("angular component", () => {
     }
 
     it("generate and destroy a lot of components", (done) => {
-        var dom = angular.element('<div id="test1-dom" ng-controller="ctlr1"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>');
-        angular.element(document.body).append(dom);
+        var document = window.document;
 
-        var app = angular.module("test1", ['react-timebar'/*, angularMock*/])
-        .controller("ctlr1", $scope => {
-            var iterations = 4;
+        mockModule('react-timebar', function($provide) {
+            console.log("got provide!");
+            $provide.value("$document", { value: "ahoj" });
+        });
+
+        mockInject(function($compile, $rootScope) {
+            var scope = $rootScope.$new();
+            var dom = $compile('<div id="test1-dom"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>')(scope);
+
+            var iterations = 5;
 
             rx.Observable
                 .interval(200)
                 .timeInterval()
                 .take(iterations + 1)
                 .subscribe(update => {
-                    $scope.$apply(() => {
+                    scope.$apply(() => {
                         console.log("update!");
                         if (update.value < iterations) {
                             var i = update.value;
-                            $scope.timebars = genTimeBarSet(i);
+                            scope.timebars = genTimeBarSet(i);
                         } else {
                             // TODO check a criteria that ckecks that even
-                            var elements = document.getElementsByClassName("time-bar");
-                            expect(elements.length).toEqual(4);
+                            var elements = dom.find(".time-bar");
+                            expect(elements.size()).toEqual(4);
                             done();
                         }
                     });
                 });
         });
-
-        angular.bootstrap(dom, ['test1']);
     });
 
 });

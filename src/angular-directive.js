@@ -15,10 +15,12 @@ function bindToScope(scope, fn) {
 
 angular.module("react-timebar", [])
 
-.directive("reactTimeBar", () => {
+.directive("reactTimeBar", ($document) => {
+    console.log("got document: ");
+    console.log($document);
     return {
         link: (scope, element, attributes) => {
-
+            console.log("linking directive!");
             var propNames = Object.keys(TimeBar.propTypes);
 
             scope.$watch(() => {
