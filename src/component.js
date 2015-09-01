@@ -4,6 +4,8 @@ require("!style!css!less!./styles.less");
 var rx = require("rx");
 var React = require("react");
 
+require("rx-dom");
+
 import { timeToPercentil } from './functions/time-functions';
 import { mergeInputs } from './functions/utils';
 import { TimeBarState, DraggingState, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
@@ -12,9 +14,9 @@ import { deltaFunction } from './delta-function';
 var noop = rx.helpers.noop;
 
 export function inputStreamsFromDocument(document) {
-    var mouseUps   = rx.Observable.fromEvent(document, 'mouseup');
-    var mouseMoves = rx.Observable.fromEvent(document, 'mousemove');
-    return rx.Observable.merge([mouseUps, mouseMoves]);
+    var mouseUps   = rx.DOM.fromEvent(document, 'mouseup', null, true);
+    var mouseMoves = rx.DOM.fromEvent(document, 'mousemove', null, true);
+    return rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation());
 }
 
 export function getTimeBarComponent(inputStreams) {
@@ -59,7 +61,6 @@ export function getTimeBarComponent(inputStreams) {
         },
         setupStateMachine: function(allInputs, deltaFunction) {
             var SM_Subscription = allInputs.subscribe(update => {
-                if (!update) console.log("UNDEFINED INPUT!!!!");
                 // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
                 var { state, inputObserver } = this;
                 var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));

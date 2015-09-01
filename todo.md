@@ -1,9 +1,9 @@
 
 # TODO
 
-- dispose the state machine on unmount
+- bundle some common functions used in demos and tests into a separate module
+- fiddle with eslint options
 - guard & prevent default on global handlers
-- cleanup (beware of drag state)
 - remove dependencies from bundle
 - throttle drags
 - memoize the timeStrToMinutes() calls
