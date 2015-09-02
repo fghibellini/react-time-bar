@@ -44,29 +44,31 @@ function drag(state, newCoords) {
     }
 }
 
-function dragEnd(state) {
+function dragEnd(state, pausableEnvironmentStream) {
     var { dragging: { intervalId, movedSinceMouseDown }, onIntervalClick  } = state;
 
     if (movedSinceMouseDown) {
         unsetCursorToWholeDocument(window.document);
     }
 
+    pausableEnvironmentStream.pause();
     var newState = state.set("dragging", null);
     return newState;
 }
 
-export function deltaFunction(state, input, stream, terminate) {
+export function deltaFunction(state, input, stream, pausableEnvironmentStream, terminate) {
     var { dragging } = state;
 
     var newState = state;
 
     if (input === TERMINATION_MSG) {
         if (dragging) {
-            newState = dragEnd(state);
+            newState = dragEnd(state, pausableEnvironmentStream);
         }
         terminate();
     } else if (input.type === "mousedown") {
         var { intervalId, side, initialCoords, timeBeforeDrag } = input;
+        pausableEnvironmentStream.resume();
         newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
     } else if (input.type === "mousemove") {
         if (dragging) {
@@ -79,7 +81,7 @@ export function deltaFunction(state, input, stream, terminate) {
             if (!movedSinceMouseDown) {
                 onIntervalClick(intervalId, null);
             }
-            newState = dragEnd(state);
+            newState = dragEnd(state, pausableEnvironmentStream);
         }
     } else if (input.type === "propchange") {
         var { newProps } = input;
@@ -87,7 +89,7 @@ export function deltaFunction(state, input, stream, terminate) {
             var { intervalId } = dragging;
             var removedElements = getRemovedIds(state.intervals, newProps.intervals);
             if (~removedElements.indexOf(intervalId)) {
-                newState = dragEnd(state);
+                newState = dragEnd(state, pausableEnvironmentStream);
             }
         }
         newState = newState.merge(newProps);

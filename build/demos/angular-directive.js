@@ -41676,17 +41676,22 @@
 
 	var noop = rx.helpers.noop;
 
+	var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
+
 	function inputStreamsFromDocument(document) {
 	    var mouseUps = rx.DOM.fromEvent(document, 'mouseup', null, true);
 	    var mouseMoves = rx.DOM.fromEvent(document, 'mousemove', null, true);
-	    return rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
+	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
 	        return e.stopPropagation();
-	    });
+	    }).pausable();
+	    inputStreams.pause();
+	    return inputStreams;
 	}
 
-	function getTimeBarComponent(inputStreams) {
+	function getTimeBarComponent(environmentObservable) {
 
-	    inputStreams = inputStreams || inputStreamsFromDocument(window.document);
+	    // this must be a pausable observable of mousemoves and mouseups
+	    environmentObservable = environmentObservable || inputStreamsFromDocument(window.document);
 
 	    return React.createClass({
 	        displayName: "TimeBar",
@@ -41718,18 +41723,31 @@
 	            };
 	        },
 	        getAllInputs: function getAllInputs() {
-	            var componentInputs = this.inputObserver = new rx.Subject();
-	            return (0, _functionsUtils.mergeInputs)([componentInputs, inputStreams]);
+	            var inputSubject = new rx.Subject();
+	            this.inputObserver = inputSubject;
+	            return (0, _functionsUtils.mergeInputs)([inputSubject, environmentObservable]).observeOn(rx.Scheduler.currentThread);
 	        },
 	        setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
 	            var _this = this;
 
 	            var SM_Subscription = allInputs.subscribe(function (update) {
-	                // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
+	                /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
 	                var state = _this.state;
 	                var inputObserver = _this.inputObserver;
 
-	                var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
+	                //console.log("starting:");
+	                //console.log(update);
+	                //console.log("");
+	                if (_this.__deltaRunnging) {
+	                    throw Error(NESTED_DELTAS_ERROR);
+	                }
+	                _this.__deltaRunnging = true;
+	                var newState = deltaFunction(state, update, inputObserver, environmentObservable, SM_Subscription.dispose.bind(SM_Subscription));
+	                _this.__deltaRunnging = false;
+	                //console.log("ending:");
+	                //console.log(update);
+	                //console.log("");
+
 	                if (newState !== state) {
 	                    _this.replaceState(newState);
 	                }
@@ -41844,7 +41862,7 @@
 	exports.noop = noop;
 
 	function mergeInputs(inputObservables) {
-	    return mergeObservables.apply(null, inputObservables).observeOn(rx.Scheduler["default"]);
+	    return mergeObservables.apply(null, inputObservables);
 	}
 
 	function getRemovedIds(oldIntervals, newIntervals) {
@@ -57475,7 +57493,7 @@
 	    }
 	}
 
-	function dragEnd(state) {
+	function dragEnd(state, pausableEnvironmentStream) {
 	    var _state$dragging = state.dragging;
 	    var intervalId = _state$dragging.intervalId;
 	    var movedSinceMouseDown = _state$dragging.movedSinceMouseDown;
@@ -57485,18 +57503,19 @@
 	        (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
 	    }
 
+	    pausableEnvironmentStream.pause();
 	    var newState = state.set("dragging", null);
 	    return newState;
 	}
 
-	function deltaFunction(state, input, stream, terminate) {
+	function deltaFunction(state, input, stream, pausableEnvironmentStream, terminate) {
 	    var dragging = state.dragging;
 
 	    var newState = state;
 
 	    if (input === _state.TERMINATION_MSG) {
 	        if (dragging) {
-	            newState = dragEnd(state);
+	            newState = dragEnd(state, pausableEnvironmentStream);
 	        }
 	        terminate();
 	    } else if (input.type === "mousedown") {
@@ -57505,6 +57524,7 @@
 	        var initialCoords = input.initialCoords;
 	        var timeBeforeDrag = input.timeBeforeDrag;
 
+	        pausableEnvironmentStream.resume();
 	        newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
 	    } else if (input.type === "mousemove") {
 	        if (dragging) {
@@ -57520,7 +57540,7 @@
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
 	            }
-	            newState = dragEnd(state);
+	            newState = dragEnd(state, pausableEnvironmentStream);
 	        }
 	    } else if (input.type === "propchange") {
 	        var newProps = input.newProps;
@@ -57530,7 +57550,7 @@
 
 	            var removedElements = (0, _functionsUtils.getRemovedIds)(state.intervals, newProps.intervals);
 	            if (~removedElements.indexOf(intervalId)) {
-	                newState = dragEnd(state);
+	                newState = dragEnd(state, pausableEnvironmentStream);
 	            }
 	        }
 	        newState = newState.merge(newProps);

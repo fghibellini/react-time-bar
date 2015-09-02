@@ -13,15 +13,20 @@ import { deltaFunction } from './delta-function';
 
 var noop = rx.helpers.noop;
 
+var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
+
 export function inputStreamsFromDocument(document) {
     var mouseUps   = rx.DOM.fromEvent(document, 'mouseup', null, true);
     var mouseMoves = rx.DOM.fromEvent(document, 'mousemove', null, true);
-    return rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation());
+    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation()).pausable();
+    inputStreams.pause();
+    return inputStreams;
 }
 
-export function getTimeBarComponent(inputStreams) {
+export function getTimeBarComponent(environmentObservable) {
 
-    inputStreams = inputStreams || inputStreamsFromDocument(window.document);
+    // this must be a pausable observable of mousemoves and mouseups
+    environmentObservable = environmentObservable || inputStreamsFromDocument(window.document);
 
     return React.createClass({
         displayName: "TimeBar",
@@ -56,14 +61,26 @@ export function getTimeBarComponent(inputStreams) {
             };
         },
         getAllInputs: function() {
-            var componentInputs = this.inputObserver = new rx.Subject();
-            return mergeInputs([componentInputs, inputStreams]);
+            var inputSubject = new rx.Subject();
+            this.inputObserver = inputSubject;
+            return mergeInputs([inputSubject, environmentObservable]).observeOn(rx.Scheduler.currentThread);
         },
         setupStateMachine: function(allInputs, deltaFunction) {
             var SM_Subscription = allInputs.subscribe(update => {
-                // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
+                /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
                 var { state, inputObserver } = this;
-                var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
+
+                //console.log("starting:");
+                //console.log(update);
+                //console.log("");
+                if (this.__deltaRunnging) { throw Error(NESTED_DELTAS_ERROR); }
+                this.__deltaRunnging = true;
+                var newState = deltaFunction(state, update, inputObserver, environmentObservable, SM_Subscription.dispose.bind(SM_Subscription));
+                this.__deltaRunnging = false;
+                //console.log("ending:");
+                //console.log(update);
+                //console.log("");
+
                 if (newState !== state) {
                     this.replaceState(newState);
                 }

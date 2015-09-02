@@ -8,8 +8,7 @@ export var noop = rx.helpers.noop;
 
 export function mergeInputs(inputObservables) {
     return mergeObservables
-        .apply(null, inputObservables)
-        .observeOn(rx.Scheduler.default);
+        .apply(null, inputObservables);
 }
 
 export function getRemovedIds(oldIntervals, newIntervals) {

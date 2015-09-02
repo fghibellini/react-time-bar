@@ -46,269 +46,10 @@
 
 	"use strict";
 
-	// jasmine.DEFAULT_TIMEOUT_INTERVAL = 20000;
-
-	var _srcFunctionsUtils = __webpack_require__(12);
-
-	var _srcComponent = __webpack_require__(11);
-
-	var _utils = __webpack_require__(179);
-
-	var $ = window.jQuery = __webpack_require__(180); // publish jQuery so that angular can pick it
-	var rx = __webpack_require__(13);
-	var React = __webpack_require__(21);
-	var angular = __webpack_require__(6);
-	var angularMock = __webpack_require__(181);
-
-	__webpack_require__(10);
-
-	var mockModule = window.module;
-	var mockInject = window.inject;
-
-	describe("inputStream", function () {
-
-	    /**
-	     * Always only one update is being processed,
-	     * otherwise new δ calls could run
-	     * with the same state their source used.
-	     * (The state is set on return.)
-	     */
-	    it("new inputs don't interrupt the ones that are currently being processed", function (done) {
-	        var observer = new rx.Subject();
-	        var observable = (0, _srcFunctionsUtils.mergeInputs)([observer]);
-
-	        var registeredActions = [];
-
-	        var check = function check() {
-	            expect(registeredActions).toEqual(["1 processing update", "1 computing new state", "2 processing update", "2 computing new state"]);
-	            done();
-	        };
-
-	        var subscription = observable.subscribe(function exampleDelta( /*state, */update) {
-	            if (update === 1) {
-	                // STEP 1: The first delta-fn call processes the update information.
-	                registeredActions.push(update + " processing update");
-	                // STEP 2: The first delta-fn call produces a new update but the new state was still not computed.
-	                if (update === 1) {
-	                    observer.onNext(2);
-	                }
-	                // STEP 3: The first delta call produces a new state, that is passed to the next delta-fn call.
-	                registeredActions.push(update + " computing new state");
-	            } else {
-	                registeredActions.push(update + " processing update");
-	                registeredActions.push(update + " computing new state");
-	            }
-
-	            if (registeredActions.length === 4) {
-	                subscription.dispose();
-	                check();
-	            }
-	        }, function (error) {
-	            throw error;
-	        }, function (end) {
-	            throw Error("Unexpected end of stream!");
-	        });
-
-	        observer.onNext(1);
-	    });
-	});
-
-	describe("state machine", function () {
-
-	    it("once the state machine is terminated no more inputs shall be processed", function (done) {
-	        var observer = new rx.Subject();
-
-	        var registeredActions = [];
-
-	        var spyDelta = function spyDelta(state, input, inputStream, terminate) {
-	            registeredActions.push(input + " processing update");
-	            if (input === 2) terminate();
-	        };
-
-	        (0, _srcComponent.getTimeBarComponent)().prototype.setupStateMachine(observer, spyDelta);
-
-	        observer.onNext(1);
-	        observer.onNext(2); // this is the termination signal
-	        observer.onNext(3);
-
-	        setTimeout(function () {
-	            expect(registeredActions).toEqual(["1 processing update", "2 processing update"]);
-	            done();
-	        }, 50);
-	    });
-	});
-
-	describe("angular component", function () {
-
-	    function genTimeBarSet(iterator) {
-	        var start = 8;
-	        var duration = 2;
-	        var maxDistanceFromStart = 18 - duration - start;
-	        var nthStart = function nthStart(n) {
-	            return start + (iterator + n) % maxDistanceFromStart + ":00";
-	        };
-	        var nthEnd = function nthEnd(n) {
-	            return start + (iterator + n) % maxDistanceFromStart + duration + ":00";
-	        };
-
-	        return [0, 1, 2, 3].map(function (n) {
-	            return { ints: [{ id: 0, from: nthStart(n), to: nthEnd(n) }] };
-	        });
-	    }
-
-	    it("generate and destroy a lot of components", function (done) {
-	        var mouseEvents = new rx.Subject();
-
-	        mockModule('react-timebar', function ($provide) {
-	            $provide.value('reactTimeBar.Inputs', mouseEvents);
-	        });
-
-	        mockInject(function ($compile, $rootScope) {
-	            var scope = $rootScope.$new();
-	            var dom = $compile('<div id="test1-dom"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>')(scope);
-	            var iterations = 5;
-
-	            // TODO change this to not contain pause times
-	            rx.Observable.interval(200).timeInterval().take(iterations + 1).subscribe(function (update) {
-	                scope.$apply(function () {
-	                    if (update.value < iterations) {
-	                        var i = update.value;
-	                        scope.timebars = genTimeBarSet(i);
-	                    } else {
-	                        var elements = dom.find(".time-bar");
-	                        expect(elements.size()).toEqual(4);
-	                        expect(mouseEvents.observers.length).toEqual(4);
-
-	                        dom.remove();
-	                        scope.$destroy();
-
-	                        setTimeout(function () {
-	                            expect(mouseEvents.observers.length).toEqual(0);
-	                            done();
-	                        });
-	                    }
-	                });
-	            });
-	        });
-	    });
-	});
-
-	describe("mouse inputs from document", function () {
-
-	    var document, dispose, dom, button;
-
-	    beforeEach(function () {
-	        var _getNewDocument = (0, _utils.getNewDocument)();
-
-	        document = _getNewDocument.document;
-	        dispose = _getNewDocument.dispose;
-
-	        dom = $("<div id=\"mouse-tests\" style=\"width: 400px; height: 400px; padding: 0;\">\n            <button id=\"triggering-element\" style=\"width: 80px; height: 20px;\">move over me</button>\n        </div>");
-	        button = dom.find("button");
-	        dom.appendTo($(document).find("body"));
-	    });
-
-	    afterEach(function () {
-	        dom.remove();
-	        dom = button = null;
-
-	        dispose();
-	        document = dispose = null;
-	    });
-
-	    /**
-	     * This test checks that the next one doesn't pass because the rx-dom streams
-	     * don't react to the artificial mouse moves.
-	     */
-	    it("first test that the mouse events are captured by all the handlers", function (done) {
-	        /* an implementation that doesn't use event capturing and doesn't stop bubbling */
-	        function inputStreamsFromDocument(document) {
-	            var mouseUps = rx.DOM.fromEvent(document, 'mouseup');
-	            var mouseMoves = rx.DOM.fromEvent(document, 'mousemove');
-	            return rx.Observable.merge([mouseUps, mouseMoves]);
-	            //.do(x => {
-	            //    console.log("from observable!");
-	            //    console.log(x);
-	            //});
-	        }
-
-	        var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
-	        var domMouseMoveHandler = jasmine.createSpy('domMouseMoveHandler');
-
-	        // register first handler
-	        button.on("mousemove", buttonMouseMoveHandler);
-
-	        // register second handler
-	        var disposable = inputStreamsFromDocument(dom.get(0)).subscribe(domMouseMoveHandler);
-
-	        // trigger the event
-	        (0, _utils.triggerMouseMove)(button.get(0));
-
-	        setTimeout(function () {
-	            expect(buttonMouseMoveHandler.calls.count()).toEqual(1);
-	            expect(domMouseMoveHandler.calls.count()).toEqual(1);
-
-	            disposable.dispose();
-	            done();
-	        }, 100);
-	    });
-
-	    it("the element should not be notified about the mousemove while dragging", function (done) {
-	        var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
-	        var domMouseMoveHandler = jasmine.createSpy('domMouseMoveHandler');
-
-	        button.on("mousemove", buttonMouseMoveHandler);
-
-	        // before a drag-start all elements should register events on themselves as usual
-	        (0, _utils.triggerMouseMove)(button.get(0));
-
-	        // once the user starts dragging no element should be notified about any mousemoves/mouseups
-	        var disposable = (0, _srcComponent.inputStreamsFromDocument)(dom.get(0)).subscribe(domMouseMoveHandler);
-	        (0, _utils.triggerMouseMove)(button.get(0));
-	        disposable.dispose();
-
-	        // one the use stops dragging everything should return to normal
-	        (0, _utils.triggerMouseMove)(button.get(0));
-
-	        setTimeout(function () {
-	            expect(buttonMouseMoveHandler.calls.count()).toEqual(2);
-	            expect(domMouseMoveHandler.calls.count()).toEqual(1);
-
-	            done();
-	        }, 100);
-	    });
-
-	    /**
-	     * Since react uses event delegation itself,
-	     * we have to check we are called first.
-	     */
-	    it("the element should not be notified about the mousemove while dragging - (react collision?)", function (done) {
-	        var domMouseMoveHandler = jasmine.createSpy('domMouseMoveHandler');
-	        var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
-
-	        var reactRoot = $("<div>").appendTo(dom);
-	        var reactComponent = React.render(React.createElement("div", { onMouseMove: buttonMouseMoveHandler }), reactRoot.get(0));
-	        var buttonDomNode = React.findDOMNode(reactComponent);
-
-	        // before a drag-start all elements should register events on themselves as usual
-	        (0, _utils.triggerMouseMove)(buttonDomNode);
-
-	        // once the user starts dragging no element should be notified about any mousemoves/mouseups
-	        var disposable = (0, _srcComponent.inputStreamsFromDocument)(dom.get(0)).subscribe(domMouseMoveHandler);
-	        (0, _utils.triggerMouseMove)(buttonDomNode);
-	        disposable.dispose();
-
-	        // one the use stops dragging everything should return to normal
-	        (0, _utils.triggerMouseMove)(buttonDomNode);
-
-	        setTimeout(function () {
-	            expect(buttonMouseMoveHandler.calls.count()).toEqual(2);
-	            expect(domMouseMoveHandler.calls.count()).toEqual(1);
-
-	            done();
-	        }, 100);
-	    });
-	});
+	__webpack_require__(181);
+	__webpack_require__(182);
+	__webpack_require__(183);
+	__webpack_require__(186);
 
 /***/ },
 /* 1 */
@@ -29481,17 +29222,22 @@
 
 	var noop = rx.helpers.noop;
 
+	var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
+
 	function inputStreamsFromDocument(document) {
 	    var mouseUps = rx.DOM.fromEvent(document, 'mouseup', null, true);
 	    var mouseMoves = rx.DOM.fromEvent(document, 'mousemove', null, true);
-	    return rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
+	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
 	        return e.stopPropagation();
-	    });
+	    }).pausable();
+	    inputStreams.pause();
+	    return inputStreams;
 	}
 
-	function getTimeBarComponent(inputStreams) {
+	function getTimeBarComponent(environmentObservable) {
 
-	    inputStreams = inputStreams || inputStreamsFromDocument(window.document);
+	    // this must be a pausable observable of mousemoves and mouseups
+	    environmentObservable = environmentObservable || inputStreamsFromDocument(window.document);
 
 	    return React.createClass({
 	        displayName: "TimeBar",
@@ -29523,18 +29269,31 @@
 	            };
 	        },
 	        getAllInputs: function getAllInputs() {
-	            var componentInputs = this.inputObserver = new rx.Subject();
-	            return (0, _functionsUtils.mergeInputs)([componentInputs, inputStreams]);
+	            var inputSubject = new rx.Subject();
+	            this.inputObserver = inputSubject;
+	            return (0, _functionsUtils.mergeInputs)([inputSubject, environmentObservable]).observeOn(rx.Scheduler.currentThread);
 	        },
 	        setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
 	            var _this = this;
 
 	            var SM_Subscription = allInputs.subscribe(function (update) {
-	                // ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY
+	                /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
 	                var state = _this.state;
 	                var inputObserver = _this.inputObserver;
 
-	                var newState = deltaFunction(state, update, inputObserver, SM_Subscription.dispose.bind(SM_Subscription));
+	                //console.log("starting:");
+	                //console.log(update);
+	                //console.log("");
+	                if (_this.__deltaRunnging) {
+	                    throw Error(NESTED_DELTAS_ERROR);
+	                }
+	                _this.__deltaRunnging = true;
+	                var newState = deltaFunction(state, update, inputObserver, environmentObservable, SM_Subscription.dispose.bind(SM_Subscription));
+	                _this.__deltaRunnging = false;
+	                //console.log("ending:");
+	                //console.log(update);
+	                //console.log("");
+
 	                if (newState !== state) {
 	                    _this.replaceState(newState);
 	                }
@@ -29649,7 +29408,7 @@
 	exports.noop = noop;
 
 	function mergeInputs(inputObservables) {
-	    return mergeObservables.apply(null, inputObservables).observeOn(rx.Scheduler["default"]);
+	    return mergeObservables.apply(null, inputObservables);
 	}
 
 	function getRemovedIds(oldIntervals, newIntervals) {
@@ -45280,7 +45039,7 @@
 	    }
 	}
 
-	function dragEnd(state) {
+	function dragEnd(state, pausableEnvironmentStream) {
 	    var _state$dragging = state.dragging;
 	    var intervalId = _state$dragging.intervalId;
 	    var movedSinceMouseDown = _state$dragging.movedSinceMouseDown;
@@ -45290,18 +45049,19 @@
 	        (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
 	    }
 
+	    pausableEnvironmentStream.pause();
 	    var newState = state.set("dragging", null);
 	    return newState;
 	}
 
-	function deltaFunction(state, input, stream, terminate) {
+	function deltaFunction(state, input, stream, pausableEnvironmentStream, terminate) {
 	    var dragging = state.dragging;
 
 	    var newState = state;
 
 	    if (input === _state.TERMINATION_MSG) {
 	        if (dragging) {
-	            newState = dragEnd(state);
+	            newState = dragEnd(state, pausableEnvironmentStream);
 	        }
 	        terminate();
 	    } else if (input.type === "mousedown") {
@@ -45310,6 +45070,7 @@
 	        var initialCoords = input.initialCoords;
 	        var timeBeforeDrag = input.timeBeforeDrag;
 
+	        pausableEnvironmentStream.resume();
 	        newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
 	    } else if (input.type === "mousemove") {
 	        if (dragging) {
@@ -45325,7 +45086,7 @@
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
 	            }
-	            newState = dragEnd(state);
+	            newState = dragEnd(state, pausableEnvironmentStream);
 	        }
 	    } else if (input.type === "propchange") {
 	        var newProps = input.newProps;
@@ -45335,7 +45096,7 @@
 
 	            var removedElements = (0, _functionsUtils.getRemovedIds)(state.intervals, newProps.intervals);
 	            if (~removedElements.indexOf(intervalId)) {
-	                newState = dragEnd(state);
+	                newState = dragEnd(state, pausableEnvironmentStream);
 	            }
 	        }
 	        newState = newState.merge(newProps);
@@ -66715,59 +66476,7 @@
 /***/ },
 /* 177 */,
 /* 178 */,
-/* 179 */
-/***/ function(module, exports) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-	exports.getNewDocument = getNewDocument;
-	exports.triggerMouseMove = triggerMouseMove;
-
-	function getNewDocument() {
-	    var newWindow = window.open();
-
-	    window.focus();
-
-	    return {
-	        document: newWindow.document,
-	        dispose: function dispose() {
-	            return newWindow.close();
-	        }
-	    };
-	}
-
-	/**
-	 * - Taken from https://gist.github.com/callmephilip/3517765 .
-	 * - Seems to be ok that we're throwing the event created in
-	 *   one window in another window.
-	 */
-
-	function triggerMouseMove(target) {
-	    var document = window.document;
-	    var mouseMoveEvent = document.createEvent("MouseEvents");
-	    mouseMoveEvent.initMouseEvent("mousemove", //event type : click, mousedown, mouseup, mouseover, mousemove, mouseout.
-	    true, //canBubble
-	    false, //cancelable
-	    window, //event's AbstractView : should be window
-	    1, // detail : Event's mouse click count
-	    50, // screenX
-	    50, // screenY
-	    50, // clientX
-	    50, // clientY
-	    false, // ctrlKey
-	    false, // altKey
-	    false, // shiftKey
-	    false, // metaKey
-	    0, // button : 0 = click, 1 = middle button, 2 = right button
-	    null // relatedTarget : Only used with some event types (e.g. mouseover and mouseout). In other cases, pass null.
-	    );
-	    target.dispatchEvent(mouseMoveEvent);
-	}
-
-/***/ },
+/* 179 */,
 /* 180 */
 /***/ function(module, exports, __webpack_require__) {
 
@@ -75987,12 +75696,177 @@
 /* 181 */
 /***/ function(module, exports, __webpack_require__) {
 
-	__webpack_require__(182);
+	"use strict";
+
+	var rx = __webpack_require__(13);
+
+	describe("inputStream", function () {
+
+	    it("process all that is computable synchronously without interrupting the previous delta call", function (done) {
+	        var observer = new rx.Subject();
+	        var observable = observer.observeOn(rx.Scheduler.currentThread);
+
+	        var logged = [];
+	        var log = function log(str) {
+	            return logged.push(str);
+	        };
+
+	        var subscription = observable.subscribe(function exampleDelta( /*state, */update) {
+	            if (update === 1) {
+	                log("update 1 start");
+	                observer.onNext(2);
+	                log("update 1 end");
+	            } else if (update === 2) {
+	                log("update 2 start");
+	                log("update 2 end");
+	            } else {
+	                log("update 3 start");
+	                update.toBeModifiedByHandler = true;
+	                log("update 3 end");
+	            }
+	        }, function (error) {
+	            throw error;
+	        }, function (end) {
+	            throw Error("Unexpected end of stream!");
+	        });
+
+	        setTimeout(function () {
+	            expect(logged).toEqual(["EVENT 1 TRIGGER", "update 1 start", "update 1 end", "update 2 start", "update 2 end", "EVENT 1 END", "EVENT 2 TRIGGER", "update 3 start", "update 3 end", "EVENT 2 END"]);
+	            subscription.dispose();
+	            done();
+	        }, 500);
+
+	        // this setTimeout checks that the whole state machine runs synchronously
+	        setTimeout(function () {
+	            log("EVENT 2 TRIGGER");
+	            var eventObject = { toBeModifiedByHandler: false };
+	            observer.onNext(eventObject);
+	            expect(eventObject.toBeModifiedByHandler).toBeTruthy();
+	            log("EVENT 2 END");
+	        });
+
+	        log("EVENT 1 TRIGGER");
+	        observer.onNext(1);
+	        log("EVENT 1 END");
+	    });
+	});
+
+/***/ },
+/* 182 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var _srcComponent = __webpack_require__(11);
+
+	var rx = __webpack_require__(13);
+
+	describe("state machine", function () {
+
+	    it("once the state machine is terminated no more inputs shall be processed", function (done) {
+	        var observer = new rx.Subject();
+
+	        var registeredActions = [];
+
+	        var spyDelta = function spyDelta(state, input, inputStream, terminate) {
+	            registeredActions.push(input + " processing update");
+	            if (input === 2) terminate();
+	        };
+
+	        (0, _srcComponent.getTimeBarComponent)().prototype.setupStateMachine(observer, spyDelta);
+
+	        observer.onNext(1);
+	        observer.onNext(2); // this is the termination signal
+	        observer.onNext(3);
+
+	        setTimeout(function () {
+	            expect(registeredActions).toEqual(["1 processing update", "2 processing update"]);
+	            done();
+	        }, 50);
+	    });
+	});
+
+/***/ },
+/* 183 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var rx = __webpack_require__(13);
+	var $ = window.jQuery = __webpack_require__(180); // publish jQuery so that angular can pick it
+	var angular = __webpack_require__(6);
+	var angularMock = __webpack_require__(184);
+
+	var mockModule = window.module;
+	var mockInject = window.inject;
+
+	__webpack_require__(10);
+
+	describe("angular component", function () {
+
+	    function genTimeBarSet(iterator) {
+	        var start = 8;
+	        var duration = 2;
+	        var maxDistanceFromStart = 18 - duration - start;
+	        var nthStart = function nthStart(n) {
+	            return start + (iterator + n) % maxDistanceFromStart + ":00";
+	        };
+	        var nthEnd = function nthEnd(n) {
+	            return start + (iterator + n) % maxDistanceFromStart + duration + ":00";
+	        };
+
+	        return [0, 1, 2, 3].map(function (n) {
+	            return { ints: [{ id: 0, from: nthStart(n), to: nthEnd(n) }] };
+	        });
+	    }
+
+	    it("generate and destroy a lot of components", function (done) {
+	        var mouseEvents = new rx.Subject();
+
+	        mockModule('react-timebar', function ($provide) {
+	            $provide.value('reactTimeBar.Inputs', mouseEvents);
+	        });
+
+	        mockInject(function ($compile, $rootScope) {
+	            var scope = $rootScope.$new();
+	            var dom = $compile('<div id="test1-dom"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>')(scope);
+	            var iterations = 5;
+
+	            // TODO change this to not contain pause times
+	            rx.Observable.interval(200).timeInterval().take(iterations + 1).subscribe(function (update) {
+	                scope.$apply(function () {
+	                    if (update.value < iterations) {
+	                        var i = update.value;
+	                        scope.timebars = genTimeBarSet(i);
+	                    } else {
+	                        var elements = dom.find(".time-bar");
+	                        expect(elements.size()).toEqual(4);
+	                        expect(mouseEvents.observers.length).toEqual(4);
+
+	                        dom.remove();
+	                        scope.$destroy();
+
+	                        setTimeout(function () {
+	                            expect(mouseEvents.observers.length).toEqual(0);
+	                            done();
+	                        });
+	                    }
+	                });
+	            });
+	        });
+	    });
+	});
+
+/***/ },
+/* 184 */
+/***/ function(module, exports, __webpack_require__) {
+
+	__webpack_require__(185);
 	module.exports = 'ngMock';
 
 
 /***/ },
-/* 182 */
+/* 185 */
 /***/ function(module, exports) {
 
 	/**
@@ -78454,6 +78328,190 @@
 
 	})(window, window.angular);
 
+
+/***/ },
+/* 186 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	var _utils = __webpack_require__(187);
+
+	var _srcComponent = __webpack_require__(11);
+
+	var rx = __webpack_require__(13);
+	var $ = __webpack_require__(180);
+	var React = __webpack_require__(21);
+
+	describe("mouse inputs from document", function () {
+
+	    var document, dispose, dom, button;
+
+	    beforeEach(function () {
+	        var _getNewDocument = (0, _utils.getNewDocument)();
+
+	        document = _getNewDocument.document;
+	        dispose = _getNewDocument.dispose;
+
+	        dom = $("<div id=\"mouse-tests\" style=\"width: 400px; height: 400px; padding: 0;\">\n            <button id=\"triggering-element\" style=\"width: 80px; height: 20px;\">move over me</button>\n        </div>");
+	        button = dom.find("button");
+	        dom.appendTo($(document).find("body"));
+	    });
+
+	    afterEach(function () {
+	        dom.remove();
+	        dom = button = null;
+
+	        dispose();
+	        document = dispose = null;
+	    });
+
+	    /**
+	     * This test checks that the next one doesn't pass because the rx-dom streams
+	     * don't react to the artificial mouse moves.
+	     */
+	    it("first test that the mouse events are captured by all the handlers", function (done) {
+	        /* an implementation that doesn't use event capturing and doesn't stop bubbling */
+	        function inputStreamsFromDocument(document) {
+	            var mouseUps = rx.DOM.fromEvent(document, 'mouseup');
+	            var mouseMoves = rx.DOM.fromEvent(document, 'mousemove');
+	            return rx.Observable.merge([mouseUps, mouseMoves]);
+	            //.do(x => {
+	            //    console.log("from observable!");
+	            //    console.log(x);
+	            //});
+	        }
+
+	        var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
+	        var domMouseMoveHandler = jasmine.createSpy('domMouseMoveHandler');
+
+	        // register first handler
+	        button.on("mousemove", buttonMouseMoveHandler);
+
+	        // register second handler
+	        var disposable = inputStreamsFromDocument(dom.get(0)).subscribe(domMouseMoveHandler);
+
+	        // trigger the event
+	        (0, _utils.triggerMouseMove)(button.get(0));
+
+	        setTimeout(function () {
+	            expect(buttonMouseMoveHandler.calls.count()).toEqual(1);
+	            expect(domMouseMoveHandler.calls.count()).toEqual(1);
+
+	            disposable.dispose();
+	            done();
+	        }, 100);
+	    });
+
+	    it("the element should not be notified about the mousemove while dragging", function (done) {
+	        var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
+	        var domMouseMoveHandler = jasmine.createSpy('domMouseMoveHandler');
+
+	        button.on("mousemove", buttonMouseMoveHandler);
+
+	        // before a drag-start all elements should register events on themselves as usual
+	        (0, _utils.triggerMouseMove)(button.get(0));
+
+	        // once the user starts dragging no element should be notified about any mousemoves/mouseups
+	        var disposable = (0, _srcComponent.inputStreamsFromDocument)(dom.get(0)).subscribe(domMouseMoveHandler);
+	        (0, _utils.triggerMouseMove)(button.get(0));
+	        disposable.dispose();
+
+	        // one the use stops dragging everything should return to normal
+	        (0, _utils.triggerMouseMove)(button.get(0));
+
+	        setTimeout(function () {
+	            expect(buttonMouseMoveHandler.calls.count()).toEqual(2);
+	            expect(domMouseMoveHandler.calls.count()).toEqual(1);
+
+	            done();
+	        }, 100);
+	    });
+
+	    /**
+	     * Since react uses event delegation itself,
+	     * we have to check we are called first.
+	     */
+	    it("the element should not be notified about the mousemove while dragging - (react collision?)", function (done) {
+	        var domMouseMoveHandler = jasmine.createSpy('domMouseMoveHandler');
+	        var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
+
+	        var reactRoot = $("<div>").appendTo(dom);
+	        var reactComponent = React.render(React.createElement("div", { onMouseMove: buttonMouseMoveHandler }), reactRoot.get(0));
+	        var buttonDomNode = React.findDOMNode(reactComponent);
+
+	        // before a drag-start all elements should register events on themselves as usual
+	        (0, _utils.triggerMouseMove)(buttonDomNode);
+
+	        // once the user starts dragging no element should be notified about any mousemoves/mouseups
+	        var disposable = (0, _srcComponent.inputStreamsFromDocument)(dom.get(0)).subscribe(domMouseMoveHandler);
+	        (0, _utils.triggerMouseMove)(buttonDomNode);
+	        disposable.dispose();
+
+	        // one the use stops dragging everything should return to normal
+	        (0, _utils.triggerMouseMove)(buttonDomNode);
+
+	        setTimeout(function () {
+	            expect(buttonMouseMoveHandler.calls.count()).toEqual(2);
+	            expect(domMouseMoveHandler.calls.count()).toEqual(1);
+
+	            done();
+	        }, 100);
+	    });
+	});
+
+/***/ },
+/* 187 */
+/***/ function(module, exports) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.getNewDocument = getNewDocument;
+	exports.triggerMouseMove = triggerMouseMove;
+
+	function getNewDocument() {
+	    var newWindow = window.open();
+
+	    window.focus();
+
+	    return {
+	        document: newWindow.document,
+	        dispose: function dispose() {
+	            return newWindow.close();
+	        }
+	    };
+	}
+
+	/**
+	 * - Taken from https://gist.github.com/callmephilip/3517765 .
+	 * - Seems to be ok that we're throwing the event created in
+	 *   one window in another window.
+	 */
+
+	function triggerMouseMove(target) {
+	    var document = window.document;
+	    var mouseMoveEvent = document.createEvent("MouseEvents");
+	    mouseMoveEvent.initMouseEvent("mousemove", //event type : click, mousedown, mouseup, mouseover, mousemove, mouseout.
+	    true, //canBubble
+	    false, //cancelable
+	    window, //event's AbstractView : should be window
+	    1, // detail : Event's mouse click count
+	    50, // screenX
+	    50, // screenY
+	    50, // clientX
+	    50, // clientY
+	    false, // ctrlKey
+	    false, // altKey
+	    false, // shiftKey
+	    false, // metaKey
+	    0, // button : 0 = click, 1 = middle button, 2 = right button
+	    null // relatedTarget : Only used with some event types (e.g. mouseover and mouseout). In other cases, pass null.
+	    );
+	    target.dispatchEvent(mouseMoveEvent);
+	}
 
 /***/ }
 /******/ ]);
