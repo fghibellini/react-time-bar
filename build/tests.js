@@ -52,7 +52,7 @@
 	__webpack_require__(181);
 	__webpack_require__(182);
 	__webpack_require__(183);
-	__webpack_require__(186);
+	__webpack_require__(187);
 
 /***/ },
 /* 1 */
@@ -88165,12 +88165,12 @@
 
 	var _srcComponent = __webpack_require__(11);
 
-	var _timebarUtils = __webpack_require__(188);
+	var _timebarUtils = __webpack_require__(184);
 
 	var rx = __webpack_require__(13);
 	var $ = window.jQuery = __webpack_require__(180); // publish jQuery so that angular can pick it
 	var angular = __webpack_require__(6);
-	var angularMock = __webpack_require__(184);
+	var angularMock = __webpack_require__(185);
 
 	var mockModule = window.module;
 	var mockInject = window.inject;
@@ -88219,12 +88219,54 @@
 /* 184 */
 /***/ function(module, exports, __webpack_require__) {
 
-	__webpack_require__(185);
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.genTimeBarSet = genTimeBarSet;
+
+	var _srcFunctionsTimeFunctions = __webpack_require__(1);
+
+	var _ = __webpack_require__(8),
+	    range = _.range;
+
+	/**
+	 * Maps a number to a sequence of "random" intervals.
+	 * Useful when you need some chaning intervals although
+	 * you don't care what their attributes are.
+	 *
+	 * @arg {number} iterator null the random seed
+	 * @arg {number} start
+	 */
+
+	function genTimeBarSet(start, end, intervalDuration, intervalCount, iterator) {
+	    var startInMinutes = (0, _srcFunctionsTimeFunctions.timeStrToMinutes)(start);
+	    var endInMinutes = (0, _srcFunctionsTimeFunctions.timeStrToMinutes)(end);
+	    var maxDistanceFromStart = endInMinutes - intervalDuration - startInMinutes;
+
+	    var nthStart = function nthStart(n) {
+	        return (0, _srcFunctionsTimeFunctions.minutesToStr)(startInMinutes + (iterator + n) % maxDistanceFromStart);
+	    };
+	    var nthEnd = function nthEnd(n) {
+	        return (0, _srcFunctionsTimeFunctions.minutesToStr)(startInMinutes + (iterator + n) % maxDistanceFromStart + intervalDuration);
+	    };
+
+	    return range(intervalCount).map(function (n) {
+	        return { ints: [{ id: 0, from: nthStart(n), to: nthEnd(n) }] };
+	    });
+	}
+
+/***/ },
+/* 185 */
+/***/ function(module, exports, __webpack_require__) {
+
+	__webpack_require__(186);
 	module.exports = 'ngMock';
 
 
 /***/ },
-/* 185 */
+/* 186 */
 /***/ function(module, exports) {
 
 	/**
@@ -90688,12 +90730,12 @@
 
 
 /***/ },
-/* 186 */
+/* 187 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var _utils = __webpack_require__(187);
+	var _utils = __webpack_require__(188);
 
 	var _srcComponent = __webpack_require__(11);
 
@@ -90727,6 +90769,10 @@
 	    /**
 	     * This test checks that the next one doesn't pass because the rx-dom streams
 	     * don't react to the artificial mouse moves.
+	     *
+	     * To pass this test you can't have your cursor on the upper-left part of the window,
+	     * otherwise the opening tab triggers a few mousemoves.
+	     * TODO use a virtual window (phantomjs, ...)
 	     */
 	    it("first test that the mouse events are captured by all the handlers", function (done) {
 	        /* an implementation that doesn't use event capturing and doesn't stop bubbling */
@@ -90815,7 +90861,7 @@
 	});
 
 /***/ },
-/* 187 */
+/* 188 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -90865,48 +90911,6 @@
 	    null // relatedTarget : Only used with some event types (e.g. mouseover and mouseout). In other cases, pass null.
 	    );
 	    target.dispatchEvent(mouseMoveEvent);
-	}
-
-/***/ },
-/* 188 */
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-	exports.genTimeBarSet = genTimeBarSet;
-
-	var _srcFunctionsTimeFunctions = __webpack_require__(1);
-
-	var _ = __webpack_require__(8),
-	    range = _.range;
-
-	/**
-	 * Maps a number to a sequence of "random" intervals.
-	 * Useful when you need some chaning intervals although
-	 * you don't care what their attributes are.
-	 *
-	 * @arg {number} iterator null the random seed
-	 * @arg {number} start
-	 */
-
-	function genTimeBarSet(start, end, intervalDuration, intervalCount, iterator) {
-	    var startInMinutes = (0, _srcFunctionsTimeFunctions.timeStrToMinutes)(start);
-	    var endInMinutes = (0, _srcFunctionsTimeFunctions.timeStrToMinutes)(end);
-	    var maxDistanceFromStart = endInMinutes - intervalDuration - startInMinutes;
-
-	    var nthStart = function nthStart(n) {
-	        return (0, _srcFunctionsTimeFunctions.minutesToStr)(startInMinutes + (iterator + n) % maxDistanceFromStart);
-	    };
-	    var nthEnd = function nthEnd(n) {
-	        return (0, _srcFunctionsTimeFunctions.minutesToStr)(startInMinutes + (iterator + n) % maxDistanceFromStart + intervalDuration);
-	    };
-
-	    return range(intervalCount).map(function (n) {
-	        return { ints: [{ id: 0, from: nthStart(n), to: nthEnd(n) }] };
-	    });
 	}
 
 /***/ }

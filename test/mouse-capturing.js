@@ -30,6 +30,10 @@ describe("mouse inputs from document", () => {
     /**
      * This test checks that the next one doesn't pass because the rx-dom streams
      * don't react to the artificial mouse moves.
+     *
+     * To pass this test you can't have your cursor on the upper-left part of the window,
+     * otherwise the opening tab triggers a few mousemoves.
+     * TODO use a virtual window (phantomjs, ...)
      */
     it("first test that the mouse events are captured by all the handlers", done => {
         /* an implementation that doesn't use event capturing and doesn't stop bubbling */
