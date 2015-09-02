@@ -9,6 +9,7 @@
     "globals": {
         "window": true,
         "jasmine": true,
+        "spyOn": true,
         "describe": true,
         "beforeEach": true,
         "afterEach": true,

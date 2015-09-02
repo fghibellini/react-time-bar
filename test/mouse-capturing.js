@@ -4,7 +4,7 @@ var $ = require("jquery");
 var React = require("react");
 
 import { getNewDocument, triggerMouseMove } from './utils';
-import { inputStreamsFromDocument } from '../src/component';
+import { captureMouseEventsOnDomNode } from '../src/component';
 
 describe("mouse inputs from document", () => {
 
@@ -33,14 +33,10 @@ describe("mouse inputs from document", () => {
      */
     it("first test that the mouse events are captured by all the handlers", done => {
         /* an implementation that doesn't use event capturing and doesn't stop bubbling */
-        function inputStreamsFromDocument(document) {
+        function captureMouseEventsOnDomNode(document) {
             var mouseUps   = rx.DOM.fromEvent(document, 'mouseup');
             var mouseMoves = rx.DOM.fromEvent(document, 'mousemove');
             return rx.Observable.merge([mouseUps, mouseMoves]);
-            //.do(x => {
-            //    console.log("from observable!");
-            //    console.log(x);
-            //});
         }
 
         var buttonMouseMoveHandler = jasmine.createSpy('buttonMouseMoveHandler');
@@ -50,7 +46,7 @@ describe("mouse inputs from document", () => {
         button.on("mousemove", buttonMouseMoveHandler);
 
         // register second handler
-        var disposable = inputStreamsFromDocument(dom.get(0)).subscribe(domMouseMoveHandler);
+        var disposable = captureMouseEventsOnDomNode(dom.get(0)).subscribe(domMouseMoveHandler);
 
         // trigger the event
         triggerMouseMove(button.get(0));
@@ -74,7 +70,7 @@ describe("mouse inputs from document", () => {
         triggerMouseMove(button.get(0));
 
         // once the user starts dragging no element should be notified about any mousemoves/mouseups
-        var disposable = inputStreamsFromDocument(dom.get(0)).subscribe(domMouseMoveHandler);
+        var disposable = captureMouseEventsOnDomNode(dom.get(0)).subscribe(domMouseMoveHandler);
         triggerMouseMove(button.get(0));
         disposable.dispose();
 
@@ -105,7 +101,7 @@ describe("mouse inputs from document", () => {
         triggerMouseMove(buttonDomNode);
 
         // once the user starts dragging no element should be notified about any mousemoves/mouseups
-        var disposable = inputStreamsFromDocument(dom.get(0)).subscribe(domMouseMoveHandler);
+        var disposable = captureMouseEventsOnDomNode(dom.get(0)).subscribe(domMouseMoveHandler);
         triggerMouseMove(buttonDomNode);
         disposable.dispose();
 

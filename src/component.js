@@ -26,8 +26,7 @@ var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment objec
 export function captureMouseEventsOnDomNode(domNode) {
     var mouseUps   = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
     var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
-    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation()).pausable();
-    inputStreams.pause();
+    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation());
     return inputStreams;
 }
 
@@ -40,7 +39,9 @@ export function getTimeBarComponent(environment) {
         throw Error(NO_CAPTURED_EVENTS_STREAM_ERROR);
     }
 
-    var capturedMouseEvents = environment.capturedMouseEvents; /* this must be a pausable observable of mousemoves and mouseups */
+    var capturedMouseEvents = environment.capturedMouseEvents.pausable();
+    capturedMouseEvents.pause();
+    environment.capturedMouseEvents = capturedMouseEvents; // TODO modifying the environment object is not ideal, ?maybe clone it?
 
     return React.createClass({
         displayName: "TimeBar",

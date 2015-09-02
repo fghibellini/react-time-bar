@@ -12956,8 +12956,7 @@
 	    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
 	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
 	        return e.stopPropagation();
-	    }).pausable();
-	    inputStreams.pause();
+	    });
 	    return inputStreams;
 	}
 
@@ -12970,7 +12969,9 @@
 	        throw Error(NO_CAPTURED_EVENTS_STREAM_ERROR);
 	    }
 
-	    var capturedMouseEvents = environment.capturedMouseEvents; /* this must be a pausable observable of mousemoves and mouseups */
+	    var capturedMouseEvents = environment.capturedMouseEvents.pausable();
+	    capturedMouseEvents.pause();
+	    environment.capturedMouseEvents = capturedMouseEvents; // TODO modifying the environment object is not ideal, ?maybe clone it?
 
 	    return React.createClass({
 	        displayName: "TimeBar",

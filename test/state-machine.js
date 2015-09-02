@@ -1,7 +1,7 @@
 
 var rx = require("rx");
 
-import { getTimeBarComponent } from '../src/component';
+import { TimeBar } from '../src/component';
 
 describe("state machine", () => {
 
@@ -10,13 +10,13 @@ describe("state machine", () => {
 
         var registeredActions = [];
 
-        var spyDelta = function(state, input, inputStream, terminate) {
+        var spyDelta = function(state, input, inputStream, environment, terminate) {
             registeredActions.push(input + " processing update");
             if (input === 2)
                 terminate();
         };
 
-        getTimeBarComponent().prototype.setupStateMachine(observer, spyDelta);
+        TimeBar.prototype.setupStateMachine(observer, spyDelta);
 
         observer.onNext(1);
         observer.onNext(2); // this is the termination signal

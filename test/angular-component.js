@@ -9,31 +9,25 @@ var mockInject = window.inject;
 
 require("../src/angular-directive");
 
+import { TimeBar } from '../src/component';
+import { genTimeBarSet } from './timebar-utils';
+
 describe("angular component", () => {
 
-    function genTimeBarSet(iterator) {
-        var start = 8;
-        var duration = 2;
-        var maxDistanceFromStart = 18 - duration - start;
-        var nthStart = n => start + ((iterator + n) % maxDistanceFromStart) + ":00";
-        var nthEnd   = n => start + ((iterator + n) % maxDistanceFromStart) + duration + ":00";
-
-        return [0,1,2,3].map(n => {
-            return { ints: [ { id: 0, from: nthStart(n), to: nthEnd(n) } ] };
-        });
-    }
-
     it("generate and destroy a lot of components", done => {
-        var mouseEvents = new rx.Subject();
+        spyOn(TimeBar.prototype, "componentWillUnmount");
 
-        mockModule('react-timebar', function($provide) {
-            $provide.value('reactTimeBar.Inputs', mouseEvents);
-        });
+        mockModule('react-timebar');
 
         mockInject(function($compile, $rootScope) {
             var scope = $rootScope.$new();
-            var dom = $compile('<div id="test1-dom"><react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></div>')(scope);
+
+            var dom = $compile(`<div id="test1-dom">
+                <react-time-bar ng-repeat="t in timebars" intervals="t.ints" /></react-time-bar>
+            </div>`)(scope);
+
             var iterations = 5;
+            var barCount = 4;
 
             // TODO change this to not contain pause times
             rx.Observable
@@ -41,24 +35,22 @@ describe("angular component", () => {
                 .timeInterval()
                 .take(iterations + 1)
                 .subscribe(update => {
-                    scope.$apply(() => {
-                        if (update.value < iterations) {
-                            var i = update.value;
-                            scope.timebars = genTimeBarSet(i);
-                        } else {
-                            var elements = dom.find(".time-bar");
-                            expect(elements.size()).toEqual(4);
-                            expect(mouseEvents.observers.length).toEqual(4);
+                    if (update.value < iterations) {
+                        scope.$apply(() => {
+                            scope.timebars = genTimeBarSet("8:00", "18:00", 2 * 60, barCount, update.value);
+                        });
+                    } else {
+                        expect(dom.find(".time-bar").size()).toEqual(4);
+                        expect(TimeBar.prototype.componentWillUnmount.calls.count()).toEqual((iterations - 1) * barCount);
 
-                            dom.remove();
-                            scope.$destroy();
+                        dom.remove();
+                        scope.$destroy();
 
-                            setTimeout(() => {
-                                expect(mouseEvents.observers.length).toEqual(0);
-                                done();
-                            });
-                        }
-                    });
+                        setTimeout(() => {
+                            expect(TimeBar.prototype.componentWillUnmount.calls.count()).toEqual(iterations * barCount);
+                            done();
+                        });
+                    }
                 });
         });
     });
