@@ -41656,7 +41656,7 @@
 
 	var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
-	exports.inputStreamsFromDocument = inputStreamsFromDocument;
+	exports.captureMouseEventsOnDomNode = captureMouseEventsOnDomNode;
 	exports.getTimeBarComponent = getTimeBarComponent;
 
 	var _functionsTimeFunctions = __webpack_require__(1);
@@ -41677,10 +41677,19 @@
 	var noop = rx.helpers.noop;
 
 	var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
+	var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
+	var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
 
-	function inputStreamsFromDocument(document) {
-	    var mouseUps = rx.DOM.fromEvent(document, 'mouseup', null, true);
-	    var mouseMoves = rx.DOM.fromEvent(document, 'mousemove', null, true);
+	/**
+	 * Returns a pausable observable that captures all the mouseups and mousedowns on the passed domNode.
+	 * When the observable is enabled the events are captured and their propagation is stopped.
+	 * When the observable is paused it behaves as if it didn't exist.
+	 * The observable is paused by default.
+	 */
+
+	function captureMouseEventsOnDomNode(domNode) {
+	    var mouseUps = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
+	    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
 	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
 	        return e.stopPropagation();
 	    }).pausable();
@@ -41688,10 +41697,16 @@
 	    return inputStreams;
 	}
 
-	function getTimeBarComponent(environmentObservable) {
+	function getTimeBarComponent(environment) {
 
-	    // this must be a pausable observable of mousemoves and mouseups
-	    environmentObservable = environmentObservable || inputStreamsFromDocument(window.document);
+	    if (!environment) {
+	        throw Error(NO_ENVIRONMENT_ERROR);
+	    }
+	    if (!environment.capturedMouseEvents) {
+	        throw Error(NO_CAPTURED_EVENTS_STREAM_ERROR);
+	    }
+
+	    var capturedMouseEvents = environment.capturedMouseEvents; /* this must be a pausable observable of mousemoves and mouseups */
 
 	    return React.createClass({
 	        displayName: "TimeBar",
@@ -41725,7 +41740,7 @@
 	        getAllInputs: function getAllInputs() {
 	            var inputSubject = new rx.Subject();
 	            this.inputObserver = inputSubject;
-	            return (0, _functionsUtils.mergeInputs)([inputSubject, environmentObservable]).observeOn(rx.Scheduler.currentThread);
+	            return (0, _functionsUtils.mergeInputs)([inputSubject, capturedMouseEvents]).observeOn(rx.Scheduler.currentThread);
 	        },
 	        setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
 	            var _this = this;
@@ -41735,18 +41750,12 @@
 	                var state = _this.state;
 	                var inputObserver = _this.inputObserver;
 
-	                //console.log("starting:");
-	                //console.log(update);
-	                //console.log("");
 	                if (_this.__deltaRunnging) {
 	                    throw Error(NESTED_DELTAS_ERROR);
 	                }
 	                _this.__deltaRunnging = true;
-	                var newState = deltaFunction(state, update, inputObserver, environmentObservable, SM_Subscription.dispose.bind(SM_Subscription));
+	                var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
 	                _this.__deltaRunnging = false;
-	                //console.log("ending:");
-	                //console.log(update);
-	                //console.log("");
 
 	                if (newState !== state) {
 	                    _this.replaceState(newState);
@@ -41836,7 +41845,7 @@
 
 	;
 
-	var TimeBar = window && window.document ? getTimeBarComponent() : null;
+	var TimeBar = window && window.document ? getTimeBarComponent({ capturedMouseEvents: captureMouseEventsOnDomNode(window.document) }) : null;
 	exports.TimeBar = TimeBar;
 
 /***/ },
@@ -57493,7 +57502,7 @@
 	    }
 	}
 
-	function dragEnd(state, pausableEnvironmentStream) {
+	function dragEnd(state, capturedMouseEvents) {
 	    var _state$dragging = state.dragging;
 	    var intervalId = _state$dragging.intervalId;
 	    var movedSinceMouseDown = _state$dragging.movedSinceMouseDown;
@@ -57503,19 +57512,20 @@
 	        (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
 	    }
 
-	    pausableEnvironmentStream.pause();
+	    capturedMouseEvents.pause();
 	    var newState = state.set("dragging", null);
 	    return newState;
 	}
 
-	function deltaFunction(state, input, stream, pausableEnvironmentStream, terminate) {
+	function deltaFunction(state, input, stream, environment, terminate) {
 	    var dragging = state.dragging;
+	    var capturedMouseEvents = environment.capturedMouseEvents;
 
 	    var newState = state;
 
 	    if (input === _state.TERMINATION_MSG) {
 	        if (dragging) {
-	            newState = dragEnd(state, pausableEnvironmentStream);
+	            newState = dragEnd(state, capturedMouseEvents);
 	        }
 	        terminate();
 	    } else if (input.type === "mousedown") {
@@ -57524,7 +57534,7 @@
 	        var initialCoords = input.initialCoords;
 	        var timeBeforeDrag = input.timeBeforeDrag;
 
-	        pausableEnvironmentStream.resume();
+	        capturedMouseEvents.resume();
 	        newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
 	    } else if (input.type === "mousemove") {
 	        if (dragging) {
@@ -57540,7 +57550,7 @@
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
 	            }
-	            newState = dragEnd(state, pausableEnvironmentStream);
+	            newState = dragEnd(state, capturedMouseEvents);
 	        }
 	    } else if (input.type === "propchange") {
 	        var newProps = input.newProps;
@@ -57550,7 +57560,7 @@
 
 	            var removedElements = (0, _functionsUtils.getRemovedIds)(state.intervals, newProps.intervals);
 	            if (~removedElements.indexOf(intervalId)) {
-	                newState = dragEnd(state, pausableEnvironmentStream);
+	                newState = dragEnd(state, capturedMouseEvents);
 	            }
 	        }
 	        newState = newState.merge(newProps);

@@ -44,31 +44,32 @@ function drag(state, newCoords) {
     }
 }
 
-function dragEnd(state, pausableEnvironmentStream) {
+function dragEnd(state, capturedMouseEvents) {
     var { dragging: { intervalId, movedSinceMouseDown }, onIntervalClick  } = state;
 
     if (movedSinceMouseDown) {
         unsetCursorToWholeDocument(window.document);
     }
 
-    pausableEnvironmentStream.pause();
+    capturedMouseEvents.pause();
     var newState = state.set("dragging", null);
     return newState;
 }
 
-export function deltaFunction(state, input, stream, pausableEnvironmentStream, terminate) {
+export function deltaFunction(state, input, stream, environment, terminate) {
     var { dragging } = state;
+    var { capturedMouseEvents } = environment;
 
     var newState = state;
 
     if (input === TERMINATION_MSG) {
         if (dragging) {
-            newState = dragEnd(state, pausableEnvironmentStream);
+            newState = dragEnd(state, capturedMouseEvents);
         }
         terminate();
     } else if (input.type === "mousedown") {
         var { intervalId, side, initialCoords, timeBeforeDrag } = input;
-        pausableEnvironmentStream.resume();
+        capturedMouseEvents.resume();
         newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
     } else if (input.type === "mousemove") {
         if (dragging) {
@@ -81,7 +82,7 @@ export function deltaFunction(state, input, stream, pausableEnvironmentStream, t
             if (!movedSinceMouseDown) {
                 onIntervalClick(intervalId, null);
             }
-            newState = dragEnd(state, pausableEnvironmentStream);
+            newState = dragEnd(state, capturedMouseEvents);
         }
     } else if (input.type === "propchange") {
         var { newProps } = input;
@@ -89,7 +90,7 @@ export function deltaFunction(state, input, stream, pausableEnvironmentStream, t
             var { intervalId } = dragging;
             var removedElements = getRemovedIds(state.intervals, newProps.intervals);
             if (~removedElements.indexOf(intervalId)) {
-                newState = dragEnd(state, pausableEnvironmentStream);
+                newState = dragEnd(state, capturedMouseEvents);
             }
         }
         newState = newState.merge(newProps);

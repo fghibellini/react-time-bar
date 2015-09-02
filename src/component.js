@@ -14,19 +14,33 @@ import { deltaFunction } from './delta-function';
 var noop = rx.helpers.noop;
 
 var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
+var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
+var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
 
-export function inputStreamsFromDocument(document) {
-    var mouseUps   = rx.DOM.fromEvent(document, 'mouseup', null, true);
-    var mouseMoves = rx.DOM.fromEvent(document, 'mousemove', null, true);
+/**
+ * Returns a pausable observable that captures all the mouseups and mousedowns on the passed domNode.
+ * When the observable is enabled the events are captured and their propagation is stopped.
+ * When the observable is paused it behaves as if it didn't exist.
+ * The observable is paused by default.
+ */
+export function captureMouseEventsOnDomNode(domNode) {
+    var mouseUps   = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
+    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
     var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation()).pausable();
     inputStreams.pause();
     return inputStreams;
 }
 
-export function getTimeBarComponent(environmentObservable) {
+export function getTimeBarComponent(environment) {
 
-    // this must be a pausable observable of mousemoves and mouseups
-    environmentObservable = environmentObservable || inputStreamsFromDocument(window.document);
+    if (!environment) {
+        throw Error(NO_ENVIRONMENT_ERROR);
+    }
+    if (!environment.capturedMouseEvents) {
+        throw Error(NO_CAPTURED_EVENTS_STREAM_ERROR);
+    }
+
+    var capturedMouseEvents = environment.capturedMouseEvents; /* this must be a pausable observable of mousemoves and mouseups */
 
     return React.createClass({
         displayName: "TimeBar",
@@ -63,23 +77,17 @@ export function getTimeBarComponent(environmentObservable) {
         getAllInputs: function() {
             var inputSubject = new rx.Subject();
             this.inputObserver = inputSubject;
-            return mergeInputs([inputSubject, environmentObservable]).observeOn(rx.Scheduler.currentThread);
+            return mergeInputs([inputSubject, capturedMouseEvents]).observeOn(rx.Scheduler.currentThread);
         },
         setupStateMachine: function(allInputs, deltaFunction) {
             var SM_Subscription = allInputs.subscribe(update => {
                 /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
                 var { state, inputObserver } = this;
 
-                //console.log("starting:");
-                //console.log(update);
-                //console.log("");
                 if (this.__deltaRunnging) { throw Error(NESTED_DELTAS_ERROR); }
                 this.__deltaRunnging = true;
-                var newState = deltaFunction(state, update, inputObserver, environmentObservable, SM_Subscription.dispose.bind(SM_Subscription));
+                var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
                 this.__deltaRunnging = false;
-                //console.log("ending:");
-                //console.log(update);
-                //console.log("");
 
                 if (newState !== state) {
                     this.replaceState(newState);
@@ -155,4 +163,4 @@ export function getTimeBarComponent(environmentObservable) {
     });
 };
 
-export var TimeBar = (window && window.document) ? getTimeBarComponent() : null;
+export var TimeBar = (window && window.document) ? getTimeBarComponent({ capturedMouseEvents: captureMouseEventsOnDomNode(window.document) }) : null;
