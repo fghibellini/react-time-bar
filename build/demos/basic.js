@@ -50236,7 +50236,7 @@
 
 
 	// module
-	exports.push([module.id, "html,\nbody {\n  box-sizing: border-box;\n  padding: 0;\n  margin: 0;\n}\n.highlighted {\n  background: red;\n}\n#mousemove-visualizer {\n  box-sizing: border-box;\n  padding: 10px;\n  margin: 3px 0 10px;\n  width: 800px;\n  background: #eee;\n  border: 2px dashed #ccc;\n}\n#mousemove-visualizer p {\n  white-space: pre-line;\n}\n#left {\n  width: 820px;\n  min-height: 100%;\n  /*background: green;*/\n  float: left;\n  padding: 10px;\n}\n#right {\n  float: left;\n  width: 500px;\n  /*background: purple;*/\n  padding: 10px;\n}\n", ""]);
+	exports.push([module.id, "html,\nbody {\n  box-sizing: border-box;\n  padding: 0;\n  margin: 0;\n}\n.highlighted {\n  background: red;\n}\n#mousemove-visualizer {\n  box-sizing: border-box;\n  padding: 10px;\n  margin: 3px 0 10px;\n  width: 800px;\n  background: #eee;\n  border: 2px dashed #ccc;\n}\n#mousemove-visualizer p {\n  white-space: pre-line;\n}\nh1 {\n  padding: 0;\n  margin: 5px 10px;\n}\n#left {\n  width: 820px;\n  min-height: 100%;\n  /*background: green;*/\n  float: left;\n  padding: 10px;\n}\n#right {\n  float: left;\n  width: 500px;\n  /*background: purple;*/\n  padding: 10px;\n}\n", ""]);
 
 	// exports
 

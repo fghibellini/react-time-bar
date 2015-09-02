@@ -2,7 +2,7 @@
 var React = require("react");
 var angular = require("angular");
 
-import { getTimeBarComponent } from './component';
+import { getTimeBarComponent, TimeBar } from './component';
 
 function bindToScope(scope, fn) {
     return function() {
@@ -25,7 +25,9 @@ angular.module("react-timebar", [])
 
 .directive("reactTimeBar", ($injector) => {
     var inputStreams = getOptionalDependency($injector, 'reactTimeBar.Inputs');
-    var TimeBar = getTimeBarComponent(inputStreams);
+    var TimeBarComponent = inputStreams ?
+                  getTimeBarComponent({ capturedMouseEvents: inputStreams }) :
+                  TimeBar;
     return {
         link: (scope, element, attributes) => {
             var propNames = Object.keys(TimeBar.propTypes);
@@ -46,7 +48,7 @@ angular.module("react-timebar", [])
                 }
 
                 React.render(
-                    <TimeBar { ...withWrappedFunctions} />,
+                    <TimeBarComponent { ...withWrappedFunctions} />,
                     element[0]
                 );
             }, true);

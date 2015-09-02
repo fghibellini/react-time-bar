@@ -29138,10 +29138,10 @@
 
 	angular.module("react-timebar", []).directive("reactTimeBar", function ($injector) {
 	    var inputStreams = getOptionalDependency($injector, 'reactTimeBar.Inputs');
-	    var TimeBar = (0, _component.getTimeBarComponent)(inputStreams);
+	    var TimeBarComponent = inputStreams ? (0, _component.getTimeBarComponent)({ capturedMouseEvents: inputStreams }) : _component.TimeBar;
 	    return {
 	        link: function link(scope, element, attributes) {
-	            var propNames = Object.keys(TimeBar.propTypes);
+	            var propNames = Object.keys(_component.TimeBar.propTypes);
 
 	            scope.$watch(function () {
 	                var values = {};
@@ -29180,7 +29180,7 @@
 	                    withWrappedFunctions[i] = typeof newValues[i] === 'function' ? bindToScope(scope, newValues[i]) : newValues[i];
 	                }
 
-	                React.render(React.createElement(TimeBar, withWrappedFunctions), element[0]);
+	                React.render(React.createElement(TimeBarComponent, withWrappedFunctions), element[0]);
 	            }, true);
 
 	            element.on('$destroy', function () {

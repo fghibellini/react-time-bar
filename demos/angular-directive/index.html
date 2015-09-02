@@ -7,16 +7,20 @@
     <body>
         <h1>React time-bar angular directive demo</h1>
 
+        <p class="demo-description">This demo demonstrates the usage of the <i>&lt;react-time-bar&gt;</i> angular directive.
+        Only the <i>onIntervalClick</i> and <i>onIntervalDrag</i> callbacks are demonstrated.
+        The angular directive supports all the prop names the reactive component does, though the angular naming convention is used (<i>onIntervalClick</i> -&gt; <i>on-interval-click</i>).</p>
+
         <div ng-app="angularDirectiveDemo" ng-controller="onlyController">
             <react-time-bar min="'8:00'"
                      max="'18:00'"
                      width="800"
                      intervals="bunchOfIntervals"
                      on-interval-click="onIntervalClick"
-                     on-interval-drag="onIntervalDrag" />,
+                     on-interval-drag="onIntervalDrag"></react-time-bar>
+            <pre id="intervals">{{ bunchOfIntervals | json }}</pre>
         </div>
 
-        <pre id="intervals"></pre>
         <script src="../../build/demos/angular-directive.js"></script>
     </body>
 </html>
