@@ -1,6 +1,6 @@
 {
   "name": "react-time-bar",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "React TimeBar component.",
   "repository": "fghibellini/react-time-bar",
   "main": "dist/component.commonjs.js",
