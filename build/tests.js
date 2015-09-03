@@ -90753,7 +90753,7 @@
 	        document = _getNewDocument.document;
 	        dispose = _getNewDocument.dispose;
 
-	        dom = $("<div id=\"mouse-tests\" style=\"width: 400px; height: 400px; padding: 0;\">\n            <button id=\"triggering-element\" style=\"width: 80px; height: 20px;\">move over me</button>\n        </div>");
+	        dom = $("<div id=\"mouse-tests\" style=\"width: 400px; height: 400px; padding: 0; position: absolute; left: -1000px; top: -1000px;\">\n            <button id=\"triggering-element\" style=\"width: 80px; height: 20px;\">move over me</button>\n        </div>");
 	        button = dom.find("button");
 	        dom.appendTo($(document).find("body"));
 	    });
@@ -90773,6 +90773,8 @@
 	     * To pass this test you can't have your cursor on the upper-left part of the window,
 	     * otherwise the opening tab triggers a few mousemoves.
 	     * TODO use a virtual window (phantomjs, ...)
+	     * UPDATE moved the div out of the viewspace (-1000,-1000) which doesn't trigger
+	     *        the mousemoves anymore, but still not ideal)
 	     */
 	    it("first test that the mouse events are captured by all the handlers", function (done) {
 	        /* an implementation that doesn't use event capturing and doesn't stop bubbling */
