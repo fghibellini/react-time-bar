@@ -49,10 +49,10 @@
 	 */
 	"use strict";
 
-	__webpack_require__(181);
 	__webpack_require__(182);
 	__webpack_require__(183);
-	__webpack_require__(187);
+	__webpack_require__(184);
+	__webpack_require__(188);
 
 /***/ },
 /* 1 */
@@ -88064,7 +88064,8 @@
 
 
 /***/ },
-/* 181 */
+/* 181 */,
+/* 182 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -88123,7 +88124,7 @@
 	});
 
 /***/ },
-/* 182 */
+/* 183 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -88158,19 +88159,19 @@
 	});
 
 /***/ },
-/* 183 */
+/* 184 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
 	var _srcComponent = __webpack_require__(11);
 
-	var _timebarUtils = __webpack_require__(184);
+	var _timebarUtils = __webpack_require__(185);
 
 	var rx = __webpack_require__(13);
 	var $ = window.jQuery = __webpack_require__(180); // publish jQuery so that angular can pick it
 	var angular = __webpack_require__(6);
-	var angularMock = __webpack_require__(185);
+	var angularMock = __webpack_require__(186);
 
 	var mockModule = window.module;
 	var mockInject = window.inject;
@@ -88216,7 +88217,7 @@
 	});
 
 /***/ },
-/* 184 */
+/* 185 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -88258,15 +88259,15 @@
 	}
 
 /***/ },
-/* 185 */
+/* 186 */
 /***/ function(module, exports, __webpack_require__) {
 
-	__webpack_require__(186);
+	__webpack_require__(187);
 	module.exports = 'ngMock';
 
 
 /***/ },
-/* 186 */
+/* 187 */
 /***/ function(module, exports) {
 
 	/**
@@ -90730,12 +90731,12 @@
 
 
 /***/ },
-/* 187 */
+/* 188 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
 
-	var _utils = __webpack_require__(188);
+	var _utils = __webpack_require__(189);
 
 	var _srcComponent = __webpack_require__(11);
 
@@ -90863,7 +90864,7 @@
 	});
 
 /***/ },
-/* 188 */
+/* 189 */
 /***/ function(module, exports) {
 
 	"use strict";

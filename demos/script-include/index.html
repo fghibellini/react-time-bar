@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>Simple &lt;script&gt; tag inclusion example.</title>
+
+        <style>
+            .highlighted {
+                background: red;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>Simple &lt;script&gt; tag inclusion example.</h1>
+
+        <div id="container"></div>
+
+        <!-- DEPS -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/react/0.13.3/react.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/3.1.2/rx.all.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs-dom/6.0.0/rx.dom.js"></script>
+
+        <!-- INCLUDE THE COMPONENT -->
+        <script src="../../dist/component.var.js"></script>
+
+        <!-- YOUR CODE (using babel for in-browser jsx tranformation)  -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash.js"></script>
+        <script type="text/babel">
+            var TimeBar = ReactTimeBar.TimeBar;
+
+            var intervals = [
+                { id: 0, from: "10:00", to: "11:00", className:"highlighted" },
+                { id: 1, from: "12:00", to: "15:00" }
+            ];
+
+            function onIntervalClick(intervalId, e) {
+                var interval = _.find(intervals, i => i.id === intervalId);
+                if (interval.className) {
+                    delete interval.className;
+                } else {
+                    interval.className = "highlighted";
+                }
+                refresh();
+            }
+
+            var refresh = () => React.render(
+                <TimeBar min={"8:00"}
+                         max={"18:00"}
+                         width={800}
+                         intervals={intervals}
+                         onIntervalClick={onIntervalClick} />,
+                window.document.getElementById("container")
+            );
+
+            refresh();
+        </script>
+    </body>
+</html>

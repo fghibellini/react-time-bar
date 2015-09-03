@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>AMD module loading example.</title>
+
+        <style>
+            .highlighted {
+                background: red;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>AMD module loading example.</h1>
+
+        <div id="container"></div>
+
+        <!-- BABEL TRANSFORMER FOR JSX SUPPORT -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-core/5.8.23/browser.js"></script>
+        <!-- RequireJS (must be loaded after the babel transformer) -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.20/require.js"></script>
+        <!-- YOUR CODE (using babel for in-browser jsx tranformation)  -->
+        <script type="text/babel">
+            requirejs.config({
+                paths: {
+                    // dependencies
+                    "react":  "//cdnjs.cloudflare.com/ajax/libs/react/0.13.3/react",
+                    "rx":     "//cdnjs.cloudflare.com/ajax/libs/rxjs/3.1.2/rx.all",
+                    "rx-dom": "//cdnjs.cloudflare.com/ajax/libs/rxjs-dom/6.0.0/rx.dom",
+                    "lodash": "//cdnjs.cloudflare.com/ajax/libs/lodash.js/3.10.1/lodash",
+                    // the component
+                    "react-time-bar": "../../dist/component.amd"
+                }
+            });
+
+            require(["react", "lodash", "react-time-bar"], function(React, _, ReactTimeBar) {
+                var TimeBar = ReactTimeBar.TimeBar;
+
+                var intervals = [
+                    { id: 0, from: "10:00", to: "11:00", className:"highlighted" },
+                    { id: 1, from: "12:00", to: "15:00" }
+                ];
+
+                function onIntervalClick(intervalId, e) {
+                    var interval = _.find(intervals, i => i.id === intervalId);
+                    if (interval.className) {
+                        delete interval.className;
+                    } else {
+                        interval.className = "highlighted";
+                    }
+                    refresh();
+                }
+
+                var refresh = () => React.render(
+                    <TimeBar min={"8:00"}
+                             max={"18:00"}
+                             width={800}
+                             intervals={intervals}
+                             onIntervalClick={onIntervalClick} />,
+                    window.document.getElementById("container")
+                );
+
+                refresh();
+            });
+        </script>
+    </body>
+</html>

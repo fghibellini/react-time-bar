@@ -11,7 +11,7 @@ module.exports = applyCommonConfig({
         filename: "[name].amd.js",
 
         libraryTarget: "amd",
-        library: "TimeBar"
+        library: "react-time-bar"
     },
     externals: {
         react: "react",

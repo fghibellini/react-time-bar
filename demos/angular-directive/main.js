@@ -37,7 +37,11 @@ angular.module("angularDirectiveDemo", ["react-timebar"])
         onIntervalClick: intervalId => {
             var intervals = $scope.bunchOfIntervals;
             var interval = _.find(intervals, i => i.id === intervalId);
-            interval.className = interval.className ? "" : "highlighted";
+            if (interval.className) {
+                delete interval.className;
+            } else {
+                interval.className = "highlighted";
+            }
         },
         onIntervalDrag: (intervalId, newIntervalStart) => {
             var intervals = $scope.bunchOfIntervals;

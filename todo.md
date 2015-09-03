@@ -1,10 +1,11 @@
 
 ## TODO
 
-- remove dependencies from bundle
 - bundle some common functions used in demos and tests into a separate module
 - clean up demos
 - fiddle with eslint options
+- when no start/end change handlers are registered don't show the resize
+  cursor when hovering over the side handles
 
 ## Maybe
 

@@ -81,7 +81,11 @@
 	            var interval = _.find(intervals, function (i) {
 	                return i.id === intervalId;
 	            });
-	            interval.className = interval.className ? "" : "highlighted";
+	            if (interval.className) {
+	                delete interval.className;
+	            } else {
+	                interval.className = "highlighted";
+	            }
 	        },
 	        onIntervalDrag: function onIntervalDrag(intervalId, newIntervalStart) {
 	            var intervals = $scope.bunchOfIntervals;

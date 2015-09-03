@@ -11,7 +11,7 @@ module.exports = applyCommonConfig({
         filename: "[name].var.js",
 
         libraryTarget: "var",
-        library: "TimeBar"
+        library: "ReactTimeBar"
     },
     externals: {
         react: "React",
