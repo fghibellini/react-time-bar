@@ -2,6 +2,7 @@
   "name": "react-time-bar",
   "version": "1.0.0",
   "description": "React TimeBar component.",
+  "repository": "fghibellini/react-time-bar",
   "main": "dist/component.commonjs.js",
   "dependencies": {
     "angular": "^1.4.5",
