@@ -17,6 +17,7 @@ module.exports = applyCommonConfig({
         react: "react",
         rx: "rx",
         "rx-dom": "rx-dom",
-        angular: "angular"
+        angular: "angular",
+        immutable: "immutable"
     }
 });
