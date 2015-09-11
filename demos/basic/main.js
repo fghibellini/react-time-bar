@@ -122,6 +122,31 @@ window.document.getElementById("run-remove").addEventListener("click", function(
     }, 2000);
 });
 
+function removeInterval(id) {
+    for (var i = 0, interval; interval = intervals[i]; i++) {
+        if (interval.id === id) {
+            intervals.splice(i, 1);
+            break;
+        }
+    }
+    refresh();
+}
+
+function blockEvent(e) {
+    e.stopPropagation();
+}
+
+function intervalContentGen(interval) {
+    var fn = function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        removeInterval(interval.id);
+    };
+    var removeButton = (<a onClick={fn}
+                           onMouseDown={blockEvent}>x</a>);
+    return <span className="interval-content">{interval.from + " - " + interval.to} {removeButton}</span>;
+}
+
 function refresh() {
 
     window.document.getElementById("intervals").innerText = JSON.stringify(intervals, null, "\t");
@@ -134,7 +159,8 @@ function refresh() {
                  onStartChange={updateStart}
                  onEndChange={updateEnd}
                  onIntervalClick={onIntervalClick}
-                 onIntervalDrag={onIntervalDrag} />,
+                 onIntervalDrag={onIntervalDrag}
+                 intervalContentGen={intervalContentGen} />,
         window.document.getElementById("container")
     );
 }

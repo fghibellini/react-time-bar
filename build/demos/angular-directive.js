@@ -41728,7 +41728,8 @@
 	                from: React.PropTypes.string,
 	                to: React.PropTypes.string,
 	                className: React.PropTypes.string
-	            }))
+	            })),
+	            intervalContentGen: React.PropTypes.func
 	        },
 	        getDefaultProps: function getDefaultProps() {
 	            return {
@@ -41739,7 +41740,14 @@
 	                onEndChange: noop,
 	                onIntervalClick: noop,
 	                onIntervalDrag: noop,
-	                intervals: []
+	                intervals: [],
+	                intervalContentGen: function intervalContentGen(interval) {
+	                    return React.createElement(
+	                        "span",
+	                        { className: "interval-content" },
+	                        interval.from + " - " + interval.to
+	                    );
+	                }
 	            };
 	        },
 	        getAllInputs: function getAllInputs() {
@@ -41801,6 +41809,7 @@
 	            var max = _state.max;
 	            var width = _state.width;
 	            var intervals = _state.intervals;
+	            var intervalContentGen = _state.intervalContentGen;
 	            var inputObserver = this.inputObserver;
 
 	            var mappedIntervals = intervals.map(function (interval, intIndex) {
@@ -41834,7 +41843,8 @@
 	                    React.createElement("div", { className: "interval-handle interval-handle-left",
 	                        onMouseDown: leftHandleDragStart }),
 	                    React.createElement("div", { className: "interval-handle interval-handle-right",
-	                        onMouseDown: rightHandleDragStart })
+	                        onMouseDown: rightHandleDragStart }),
+	                    intervalContentGen(interval)
 	                );
 	            });
 
@@ -52446,7 +52456,8 @@
 	    onEndChange: _functionsUtils.noop,
 	    onIntervalClick: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
-	    intervals: null
+	    intervals: null,
+	    intervalContentGen: _functionsUtils.noop
 	});
 
 	exports.TimeBarState = TimeBarState;
@@ -52492,7 +52503,8 @@
 	    onEndChange: null,
 	    onIntervalClick: null,
 	    onIntervalDrag: null,
-	    intervals: new Immutable.List([])
+	    intervals: new Immutable.List([]),
+	    intervalContentGen: null
 	});
 
 	exports.Props = Props;
@@ -57637,7 +57649,7 @@
 
 
 	// module
-	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
+	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-content {\n  cursor: default;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
 
 	// exports
 

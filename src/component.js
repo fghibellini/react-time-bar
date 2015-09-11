@@ -61,7 +61,8 @@ export function getTimeBarComponent(environment) {
                 from: React.PropTypes.string,
                 to: React.PropTypes.string,
                 className: React.PropTypes.string
-            }))
+            })),
+            intervalContentGen: React.PropTypes.func
         },
         getDefaultProps: function() {
             return {
@@ -72,7 +73,8 @@ export function getTimeBarComponent(environment) {
                 onEndChange: noop,
                 onIntervalClick: noop,
                 onIntervalDrag: noop,
-                intervals: []
+                intervals: [],
+                intervalContentGen: interval => <span className="interval-content">{interval.from + " - " + interval.to}</span>
             };
         },
         getAllInputs: function() {
@@ -123,7 +125,7 @@ export function getTimeBarComponent(environment) {
             inputObserver.onNext(TERMINATION_MSG);
         },
         render: function() {
-            var { state: { min, max, width, intervals }, inputObserver } = this;
+            var { state: { min, max, width, intervals, intervalContentGen }, inputObserver } = this;
 
             var mappedIntervals = intervals.map((interval, intIndex) => {
                 var start = width * timeToPercentil(min, max, interval.from);
@@ -153,6 +155,7 @@ export function getTimeBarComponent(environment) {
                          onMouseDown={leftHandleDragStart} />
                     <div className="interval-handle interval-handle-right"
                          onMouseDown={rightHandleDragStart} />
+                    {intervalContentGen(interval)}
                 </div>);
             });
 

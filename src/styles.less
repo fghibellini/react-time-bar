@@ -27,6 +27,8 @@
 .interval {
     position: absolute;
     display: inline-block;
+    text-align: center;
+    line-height: @bar-height;
     box-sizing: border-box;
     top: 0;
     height: 100%;
@@ -35,6 +37,11 @@
  /* VERY LAGGY & CPU intensive
     transition: @movement-duration left ease-out, @movement-duration width ease-out;
     will-change: left, width; */
+}
+
+.interval-content {
+    cursor: default;
+    .user-select(none);
 }
 
 .interval-handle {
