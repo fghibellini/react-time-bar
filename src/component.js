@@ -6,7 +6,7 @@ var React = require("react");
 
 require("rx-dom");
 
-import { timeToPercentil } from './functions/time-functions';
+import { timeToPercentil, percentilToTime, addMinutes, minutesToStr, timeStrToMinutes } from './functions/time-functions';
 import { mergeInputs } from './functions/utils';
 import { TimeBarState, DraggingState, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
 import { deltaFunction } from './delta-function';
@@ -28,6 +28,46 @@ export function captureMouseEventsOnDomNode(domNode) {
     var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
     var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation());
     return inputStreams;
+}
+
+var intervalPreviewWidth = 30;
+// TODO work on this function
+/**
+ * assumes the intervals are ordered
+ */
+function defaultNewIntervalPreviewBounds(startTime, min, max, intervals) {
+    startTime = timeStrToMinutes(startTime);
+
+    var prevInterval, nextInterval;
+    for (var i = 0, interval; interval = intervals[i]; i++) {
+        var iFrom = timeStrToMinutes(interval.from);
+        var iTo = timeStrToMinutes(interval.to);
+        if (iTo <= startTime)
+            prevInterval = interval;
+        if (iFrom > startTime) {
+            nextInterval = interval;
+            break;
+        }
+    }
+
+    var minStartTime = prevInterval ? timeStrToMinutes(prevInterval.to) : timeStrToMinutes(min);
+    var maxEndTime = nextInterval ? timeStrToMinutes(nextInterval.from) : timeStrToMinutes(max);
+
+    if (intervalPreviewWidth > (maxEndTime - minStartTime)) {
+        return null;
+    } else {
+        var startTimeUnbounded = startTime - intervalPreviewWidth / 2;
+        var start, end;
+        if (startTimeUnbounded < minStartTime) {
+            start = minStartTime;
+            end = start + intervalPreviewWidth;
+        } else {
+            var endTimeUnbounded = startTime + intervalPreviewWidth / 2;
+            end = endTimeUnbounded > maxEndTime ? maxEndTime : endTimeUnbounded;
+            start = end - intervalPreviewWidth;
+        }
+        return { from: minutesToStr(start), to: minutesToStr(end) };
+    }
 }
 
 export function getTimeBarComponent(environment) {
@@ -62,7 +102,9 @@ export function getTimeBarComponent(environment) {
                 to: React.PropTypes.string,
                 className: React.PropTypes.string
             })),
-            intervalContentGen: React.PropTypes.func
+            intervalContentGen: React.PropTypes.func,
+            newIntervalPreviewBounds: React.PropTypes.func,
+            createNewInterval: React.PropTypes.func
         },
         getDefaultProps: function() {
             return {
@@ -74,7 +116,9 @@ export function getTimeBarComponent(environment) {
                 onIntervalClick: noop,
                 onIntervalDrag: noop,
                 intervals: [],
-                intervalContentGen: interval => <span className="interval-content">{interval.from + " - " + interval.to}</span>
+                intervalContentGen: interval => <span className="interval-content">{interval.from + " - " + interval.to}</span>,
+                newIntervalPreviewBounds: defaultNewIntervalPreviewBounds,
+                createNewInterval: noop
             };
         },
         getAllInputs: function() {
@@ -109,6 +153,8 @@ export function getTimeBarComponent(environment) {
 
             return new TimeBarState({
                 dragging: null,
+                displayNewIntPreview: false,
+                potentialIntervalX: null,
                 ...initialProps.toObject()
             });
         },
@@ -125,7 +171,7 @@ export function getTimeBarComponent(environment) {
             inputObserver.onNext(TERMINATION_MSG);
         },
         render: function() {
-            var { state: { min, max, width, intervals, intervalContentGen }, inputObserver } = this;
+            var { state: { min, max, width, intervals, intervalContentGen, potentialIntervalX, newIntervalPreviewBounds, displayNewIntPreview, createNewInterval }, inputObserver } = this;
 
             var mappedIntervals = intervals.map((interval, intIndex) => {
                 var start = width * timeToPercentil(min, max, interval.from);
@@ -159,8 +205,56 @@ export function getTimeBarComponent(environment) {
                 </div>);
             });
 
+            var barMouseMove = e => {
+                var barElement = React.findDOMNode(this);
+                if (e.target === barElement || e.target.className === "new-interval") {
+                    var boundingRect = barElement.getBoundingClientRect();
+                    var x = e.pageX - boundingRect.left;
+
+                    inputObserver.onNext({
+                        type: "bar-mousemove",
+                        x: x
+                    });
+                } else {
+                    inputObserver.onNext({
+                        type: "bar-mouseleave"
+                    });
+                }
+            };
+
+            var barMouseLeave = e => {
+                inputObserver.onNext({
+                    type: "bar-mouseleave"
+                });
+            };
+
+            var previewClick = e => {
+                e.stopPropagation();
+                var startTime = percentilToTime(min, max, potentialIntervalX / width);
+                var bounds = newIntervalPreviewBounds(startTime, min, max, intervals.toJS());
+                createNewInterval(bounds);
+            };
+
+            var newIntervalGhost = !displayNewIntPreview ? null : (() => {
+                var startTime = percentilToTime(min, max, potentialIntervalX / width);
+                var bounds = newIntervalPreviewBounds(startTime, min, max, intervals.toJS());
+
+                if (bounds === null) {
+                    return null;
+                } else {
+                    var start = width * timeToPercentil(min, max, bounds.from);
+                    var end = width * timeToPercentil(min, max, bounds.to);
+                    return (<div className="new-interval"
+                                 style={{ left: start, width: end - start }}
+                                 onClick={previewClick}>+</div>);
+                }
+            })();
+
             return (<div className="time-bar"
-                        style={{ width: width }}>
+                        style={{ width: width }}
+                        onMouseMove={barMouseMove}
+                        onMouseLeave={barMouseLeave}>
+                {newIntervalGhost}
                 {mappedIntervals}
             </div>);
         }

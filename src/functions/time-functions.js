@@ -36,3 +36,16 @@ export function timeToPercentil(min, max, t) {
     var tFromStart = tMinutes - minMinutes;
     return tFromStart / durationMinutes;
 }
+
+export function percentilToTime(min, max, percentil) {
+    var minMinutes = timeStrToMinutes(min);
+    var maxMinutes = timeStrToMinutes(max);
+    var durationMinutes = maxMinutes - minMinutes;
+    var minutes = Math.floor(percentil * durationMinutes);
+    return minutesToStr(minMinutes + minutes);
+}
+
+export function addMinutes(time, delta) {
+    var minutes = timeStrToMinutes(time);
+    return minutesToStr(minutes + delta);
+}

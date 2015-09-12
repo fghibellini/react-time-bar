@@ -198,9 +198,10 @@
 	    };
 	    var removeButton = React.createElement(
 	        "a",
-	        { onClick: fn,
+	        { className: "remove-button",
+	            onClick: fn,
 	            onMouseDown: blockEvent },
-	        "x"
+	        "[x]"
 	    );
 	    return React.createElement(
 	        "span",
@@ -209,6 +210,20 @@
 	        " ",
 	        removeButton
 	    );
+	}
+
+	function genNewInterval(bounds) {
+	    var intervalWithHighestId = _.max(intervals, function (i) {
+	        return i.id;
+	    });
+	    var newId = intervalWithHighestId ? intervalWithHighestId.id + 1 : 0;
+	    var newInterval = { id: newId, from: bounds.from, to: bounds.to };
+	    var index = 0;
+	    for (var interval; interval = intervals[index]; index++) {
+	        if ((0, _srcFunctionsTimeFunctions.timeStrToMinutes)(interval.from) > (0, _srcFunctionsTimeFunctions.timeStrToMinutes)(newInterval.from)) break;
+	    }
+	    intervals.splice(index, 0, newInterval);
+	    refresh();
 	}
 
 	function refresh() {
@@ -223,7 +238,8 @@
 	        onEndChange: updateEnd,
 	        onIntervalClick: onIntervalClick,
 	        onIntervalDrag: onIntervalDrag,
-	        intervalContentGen: intervalContentGen }), window.document.getElementById("container"));
+	        intervalContentGen: intervalContentGen,
+	        createNewInterval: genNewInterval }), window.document.getElementById("container"));
 	}
 
 	refresh();
@@ -240,6 +256,8 @@
 	exports.timeStrToMinutes = timeStrToMinutes;
 	exports.minutesToStr = minutesToStr;
 	exports.timeToPercentil = timeToPercentil;
+	exports.percentilToTime = percentilToTime;
+	exports.addMinutes = addMinutes;
 
 	function parseDec(s) {
 	    return parseInt(s, 10);
@@ -282,6 +300,19 @@
 	    var tMinutes = timeStrToMinutes(t);
 	    var tFromStart = tMinutes - minMinutes;
 	    return tFromStart / durationMinutes;
+	}
+
+	function percentilToTime(min, max, percentil) {
+	    var minMinutes = timeStrToMinutes(min);
+	    var maxMinutes = timeStrToMinutes(max);
+	    var durationMinutes = maxMinutes - minMinutes;
+	    var minutes = Math.floor(percentil * durationMinutes);
+	    return minutesToStr(minMinutes + minutes);
+	}
+
+	function addMinutes(time, delta) {
+	    var minutes = timeStrToMinutes(time);
+	    return minutesToStr(minutes + delta);
 	}
 
 /***/ },
@@ -12996,6 +13027,45 @@
 	    return inputStreams;
 	}
 
+	var intervalPreviewWidth = 30;
+	// TODO work on this function
+	/**
+	 * assumes the intervals are ordered
+	 */
+	function defaultNewIntervalPreviewBounds(startTime, min, max, intervals) {
+	    startTime = (0, _functionsTimeFunctions.timeStrToMinutes)(startTime);
+
+	    var prevInterval, nextInterval;
+	    for (var i = 0, interval; interval = intervals[i]; i++) {
+	        var iFrom = (0, _functionsTimeFunctions.timeStrToMinutes)(interval.from);
+	        var iTo = (0, _functionsTimeFunctions.timeStrToMinutes)(interval.to);
+	        if (iTo <= startTime) prevInterval = interval;
+	        if (iFrom > startTime) {
+	            nextInterval = interval;
+	            break;
+	        }
+	    }
+
+	    var minStartTime = prevInterval ? (0, _functionsTimeFunctions.timeStrToMinutes)(prevInterval.to) : (0, _functionsTimeFunctions.timeStrToMinutes)(min);
+	    var maxEndTime = nextInterval ? (0, _functionsTimeFunctions.timeStrToMinutes)(nextInterval.from) : (0, _functionsTimeFunctions.timeStrToMinutes)(max);
+
+	    if (intervalPreviewWidth > maxEndTime - minStartTime) {
+	        return null;
+	    } else {
+	        var startTimeUnbounded = startTime - intervalPreviewWidth / 2;
+	        var start, end;
+	        if (startTimeUnbounded < minStartTime) {
+	            start = minStartTime;
+	            end = start + intervalPreviewWidth;
+	        } else {
+	            var endTimeUnbounded = startTime + intervalPreviewWidth / 2;
+	            end = endTimeUnbounded > maxEndTime ? maxEndTime : endTimeUnbounded;
+	            start = end - intervalPreviewWidth;
+	        }
+	        return { from: (0, _functionsTimeFunctions.minutesToStr)(start), to: (0, _functionsTimeFunctions.minutesToStr)(end) };
+	    }
+	}
+
 	function getTimeBarComponent(environment) {
 
 	    if (!environment) {
@@ -13025,7 +13095,9 @@
 	                to: React.PropTypes.string,
 	                className: React.PropTypes.string
 	            })),
-	            intervalContentGen: React.PropTypes.func
+	            intervalContentGen: React.PropTypes.func,
+	            newIntervalPreviewBounds: React.PropTypes.func,
+	            createNewInterval: React.PropTypes.func
 	        },
 	        getDefaultProps: function getDefaultProps() {
 	            return {
@@ -13043,7 +13115,9 @@
 	                        { className: "interval-content" },
 	                        interval.from + " - " + interval.to
 	                    );
-	                }
+	                },
+	                newIntervalPreviewBounds: defaultNewIntervalPreviewBounds,
+	                createNewInterval: noop
 	            };
 	        },
 	        getAllInputs: function getAllInputs() {
@@ -13082,7 +13156,9 @@
 	            this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
 
 	            return new _state2.TimeBarState(_extends({
-	                dragging: null
+	                dragging: null,
+	                displayNewIntPreview: false,
+	                potentialIntervalX: null
 	            }, initialProps.toObject()));
 	        },
 	        componentWillReceiveProps: function componentWillReceiveProps(newProps) {
@@ -13100,12 +13176,18 @@
 	            inputObserver.onNext(_state2.TERMINATION_MSG);
 	        },
 	        render: function render() {
+	            var _this2 = this;
+
 	            var _state = this.state;
 	            var min = _state.min;
 	            var max = _state.max;
 	            var width = _state.width;
 	            var intervals = _state.intervals;
 	            var intervalContentGen = _state.intervalContentGen;
+	            var potentialIntervalX = _state.potentialIntervalX;
+	            var newIntervalPreviewBounds = _state.newIntervalPreviewBounds;
+	            var displayNewIntPreview = _state.displayNewIntPreview;
+	            var createNewInterval = _state.createNewInterval;
 	            var inputObserver = this.inputObserver;
 
 	            var mappedIntervals = intervals.map(function (interval, intIndex) {
@@ -13144,10 +13226,62 @@
 	                );
 	            });
 
+	            var barMouseMove = function barMouseMove(e) {
+	                var barElement = React.findDOMNode(_this2);
+	                if (e.target === barElement || e.target.className === "new-interval") {
+	                    var boundingRect = barElement.getBoundingClientRect();
+	                    var x = e.pageX - boundingRect.left;
+
+	                    inputObserver.onNext({
+	                        type: "bar-mousemove",
+	                        x: x
+	                    });
+	                } else {
+	                    inputObserver.onNext({
+	                        type: "bar-mouseleave"
+	                    });
+	                }
+	            };
+
+	            var barMouseLeave = function barMouseLeave(e) {
+	                inputObserver.onNext({
+	                    type: "bar-mouseleave"
+	                });
+	            };
+
+	            var previewClick = function previewClick(e) {
+	                e.stopPropagation();
+	                var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, potentialIntervalX / width);
+	                var bounds = newIntervalPreviewBounds(startTime, min, max, intervals.toJS());
+	                createNewInterval(bounds);
+	            };
+
+	            var newIntervalGhost = !displayNewIntPreview ? null : (function () {
+	                var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, potentialIntervalX / width);
+	                var bounds = newIntervalPreviewBounds(startTime, min, max, intervals.toJS());
+
+	                if (bounds === null) {
+	                    return null;
+	                } else {
+	                    var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, bounds.from);
+	                    var end = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, bounds.to);
+	                    return React.createElement(
+	                        "div",
+	                        { className: "new-interval",
+	                            style: { left: start, width: end - start },
+	                            onClick: previewClick },
+	                        "+"
+	                    );
+	                }
+	            })();
+
 	            return React.createElement(
 	                "div",
 	                { className: "time-bar",
-	                    style: { width: width } },
+	                    style: { width: width },
+	                    onMouseMove: barMouseMove,
+	                    onMouseLeave: barMouseLeave },
+	                newIntervalGhost,
 	                mappedIntervals
 	            );
 	        }
@@ -23744,6 +23878,8 @@
 	exports.TERMINATION_MSG = TERMINATION_MSG;
 	var TimeBarState = new Immutable.Record({
 	    dragging: null,
+	    displayNewIntPreview: false,
+	    potentialIntervalX: null,
 	    // the following are digested props
 	    min: "8:00",
 	    max: "18:00",
@@ -23753,7 +23889,9 @@
 	    onIntervalClick: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
 	    intervals: null,
-	    intervalContentGen: _functionsUtils.noop
+	    intervalContentGen: _functionsUtils.noop,
+	    newIntervalPreviewBounds: _functionsUtils.noop,
+	    createNewInterval: _functionsUtils.noop
 	});
 
 	exports.TimeBarState = TimeBarState;
@@ -23800,7 +23938,9 @@
 	    onIntervalClick: null,
 	    onIntervalDrag: null,
 	    intervals: new Immutable.List([]),
-	    intervalContentGen: null
+	    intervalContentGen: null,
+	    newIntervalPreviewBounds: null,
+	    createNewInterval: null
 	});
 
 	exports.Props = Props;
@@ -28841,6 +28981,10 @@
 	            newState = dragEnd(state, capturedMouseEvents);
 	        }
 	        terminate();
+	    } else if (input.type === "bar-mousemove") {
+	        newState = state.set("displayNewIntPreview", true).set("potentialIntervalX", input.x);
+	    } else if (input.type === "bar-mouseleave") {
+	        newState = state.set("displayNewIntPreview", false);
 	    } else if (input.type === "mousedown") {
 	        var intervalId = input.intervalId;
 	        var side = input.side;
@@ -28945,7 +29089,7 @@
 
 
 	// module
-	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-content {\n  cursor: default;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
+	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.new-interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  width: 30px;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  cursor: pointer;\n  font-weight: bold;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-content {\n  cursor: default;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
 
 	// exports
 
@@ -50285,7 +50429,7 @@
 
 
 	// module
-	exports.push([module.id, "html,\nbody {\n  box-sizing: border-box;\n  padding: 0;\n  margin: 0;\n}\n.highlighted {\n  background: red;\n}\n#mousemove-visualizer {\n  box-sizing: border-box;\n  padding: 10px;\n  margin: 3px 0 10px;\n  width: 800px;\n  background: #eee;\n  border: 2px dashed #ccc;\n}\n#mousemove-visualizer p {\n  white-space: pre-line;\n}\nh1 {\n  padding: 0;\n  margin: 5px 10px;\n}\n#left {\n  width: 820px;\n  min-height: 100%;\n  /*background: green;*/\n  float: left;\n  padding: 10px;\n}\n#right {\n  float: left;\n  width: 500px;\n  /*background: purple;*/\n  padding: 10px;\n}\n", ""]);
+	exports.push([module.id, "html,\nbody {\n  box-sizing: border-box;\n  padding: 0;\n  margin: 0;\n}\n.highlighted {\n  background: red;\n}\n.remove-button {\n  color: red;\n  cursor: pointer;\n}\n.remove-button:hover {\n  font-weight: bold;\n}\n#mousemove-visualizer {\n  box-sizing: border-box;\n  padding: 10px;\n  margin: 3px 0 10px;\n  width: 800px;\n  background: #eee;\n  border: 2px dashed #ccc;\n}\n#mousemove-visualizer p {\n  white-space: pre-line;\n}\nh1 {\n  padding: 0;\n  margin: 5px 10px;\n}\n#left {\n  width: 820px;\n  min-height: 100%;\n  /*background: green;*/\n  float: left;\n  padding: 10px;\n}\n#right {\n  float: left;\n  width: 500px;\n  /*background: purple;*/\n  padding: 10px;\n}\n", ""]);
 
 	// exports
 

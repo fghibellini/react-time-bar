@@ -67,6 +67,10 @@ export function deltaFunction(state, input, stream, environment, terminate) {
             newState = dragEnd(state, capturedMouseEvents);
         }
         terminate();
+    } else if (input.type === "bar-mousemove") {
+        newState = state.set("displayNewIntPreview", true).set("potentialIntervalX", input.x);
+    } else if (input.type === "bar-mouseleave") {
+        newState = state.set("displayNewIntPreview", false);
     } else if (input.type === "mousedown") {
         var { intervalId, side, initialCoords, timeBeforeDrag } = input;
         capturedMouseEvents.resume();

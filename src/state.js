@@ -7,6 +7,8 @@ export var TERMINATION_MSG = {};
 
 export var TimeBarState = new Immutable.Record({
     dragging: null,
+    displayNewIntPreview: false,
+    potentialIntervalX: null,
     // the following are digested props
     min: "8:00",
     max: "18:00",
@@ -16,7 +18,9 @@ export var TimeBarState = new Immutable.Record({
     onIntervalClick: noop,
     onIntervalDrag: noop,
     intervals: null,
-    intervalContentGen: noop
+    intervalContentGen: noop,
+    newIntervalPreviewBounds: noop,
+    createNewInterval: noop
 });
 
 export var Interval = new Immutable.Record({
@@ -58,7 +62,9 @@ export var Props = new Immutable.Record({
     onIntervalClick: null,
     onIntervalDrag: null,
     intervals: new Immutable.List([]),
-    intervalContentGen: null
+    intervalContentGen: null,
+    newIntervalPreviewBounds: null,
+    createNewInterval: null
 });
 
 export function propsToImmutable(propsObject) {

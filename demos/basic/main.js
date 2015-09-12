@@ -142,9 +142,23 @@ function intervalContentGen(interval) {
         e.stopPropagation();
         removeInterval(interval.id);
     };
-    var removeButton = (<a onClick={fn}
-                           onMouseDown={blockEvent}>x</a>);
+    var removeButton = (<a className="remove-button"
+                           onClick={fn}
+                           onMouseDown={blockEvent}>[x]</a>);
     return <span className="interval-content">{interval.from + " - " + interval.to} {removeButton}</span>;
+}
+
+function genNewInterval(bounds) {
+    var intervalWithHighestId = _.max(intervals, i => i.id);
+    var newId = intervalWithHighestId ? intervalWithHighestId.id + 1 : 0;
+    var newInterval = { id: newId, from: bounds.from, to: bounds.to };
+    var index = 0;
+    for (var interval; interval = intervals[index]; index++) {
+        if (timeStrToMinutes(interval.from) > timeStrToMinutes(newInterval.from))
+            break;
+    }
+    intervals.splice(index, 0, newInterval);
+    refresh();
 }
 
 function refresh() {
@@ -160,7 +174,8 @@ function refresh() {
                  onEndChange={updateEnd}
                  onIntervalClick={onIntervalClick}
                  onIntervalDrag={onIntervalDrag}
-                 intervalContentGen={intervalContentGen} />,
+                 intervalContentGen={intervalContentGen}
+                 createNewInterval={genNewInterval} />,
         window.document.getElementById("container")
     );
 }
