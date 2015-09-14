@@ -17,8 +17,10 @@ For an example usage see [demo](/demos/basic/main.js).
 
 ## Building
 
+You must have [webpack](https://webpack.github.io/) installed.
+
     npm install
-    ./scripts/build-all
+    webpack
 
 ## UNDER DEVELOPMENT
 
