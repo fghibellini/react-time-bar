@@ -6,7 +6,7 @@ var React = require("react");
 
 import { timeToPercentil, percentilToTime, addMinutes, minutesToStr, timeStrToMinutes } from './functions/time-functions';
 import { mergeInputs } from './functions/utils';
-import { TimeBarState, DraggingState, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
+import { TimeBarState, PreviewAction, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
 import { deltaFunction } from './delta-function';
 import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
 import { defaultPreviewBoundsGenerator, defaultIntervalContentGenerator } from './functions/common';
@@ -82,7 +82,7 @@ export function getTimeBarComponent(environmentArgs) {
                     /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
                     var { state, inputObserver } = this;
 
-                    if (this.__deltaRunnging) { throw Error(NESTED_DELTAS_ERROR); }
+                    if (this.__deltaRunnging) { console.error(Error(NESTED_DELTAS_ERROR)); }
                     this.__deltaRunnging = true;
                     var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
                     this.__deltaRunnging = false;
@@ -106,9 +106,7 @@ export function getTimeBarComponent(environmentArgs) {
             this.setupStateMachine(allInputs, deltaFunction);
 
             return new TimeBarState({
-                dragging: null,
-                displayNewIntPreview: false,
-                potentialIntervalX: null,
+                action: null,
                 ...initialProps.toObject()
             });
         },
@@ -127,9 +125,9 @@ export function getTimeBarComponent(environmentArgs) {
         render: function() {
             var {
                 state: {
+                    action,
                     min, max, width, intervals,
                     intervalContentGenerator, previewBoundsGenerator,
-                    displayNewIntPreview, potentialIntervalX,
                     onIntervalNew
                 },
                 inputObserver
@@ -171,15 +169,13 @@ export function getTimeBarComponent(environmentArgs) {
 
             // THE PREVIEW OF A NEW INERVAL
 
-            var intervalPreview = !displayNewIntPreview ? null : (() => {
-                var startTime = percentilToTime(min, max, potentialIntervalX / width);
+            var intervalPreview = !(action && action instanceof PreviewAction) ? null : (() => {
+                var x = action.x;
+                var startTime = percentilToTime(min, max, x / width);
                 var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
 
                 var previewClick = e => {
                     e.stopPropagation();
-
-                    var startTime = percentilToTime(min, max, potentialIntervalX / width);
-                    var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
                     onIntervalNew(bounds);
                 };
 

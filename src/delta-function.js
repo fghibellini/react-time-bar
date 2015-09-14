@@ -1,10 +1,10 @@
 
-import { TimeBarState, DraggingState, TERMINATION_MSG } from './state';
+import { TimeBarState, DraggingAction, PreviewAction, TERMINATION_MSG } from './state';
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './functions/global-cursor';
 import { getRemovedIds, modifyTimeByPixels } from './functions/utils';
 
 function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
-    var newState = state.set("dragging", new DraggingState({
+    var newState = state.set("action", new DraggingAction({
         intervalId: intervalId,
         side: side,
         initialCoords: initialCoords,
@@ -15,8 +15,15 @@ function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
 }
 
 function drag(state, newCoords) {
-    var { dragging, min, max, width, onStartChange, onEndChange, onIntervalDrag } = state;
-    var { intervalId, side, timeBeforeDrag, initialCoords, movedSinceMouseDown } = dragging;
+    var {
+        min, max, width,
+        onStartChange, onEndChange, onIntervalDrag,
+        action: {
+            intervalId, side,
+            timeBeforeDrag, initialCoords,
+            movedSinceMouseDown
+        }
+    } = state;
 
     var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
 
@@ -36,8 +43,8 @@ function drag(state, newCoords) {
         }[side];
         setCursorToWholeDocument(window.document, cursorName);
 
-        var newDraggingState = dragging.set("movedSinceMouseDown", true);
-        var newState = state.set("dragging", newDraggingState);
+        var newDraggingAction = state.action.set("movedSinceMouseDown", true);
+        var newState = state.set("action", newDraggingAction);
         return newState;
     } else {
         return state;
@@ -45,44 +52,45 @@ function drag(state, newCoords) {
 }
 
 function dragEnd(state, capturedMouseEvents) {
-    var { dragging: { intervalId, movedSinceMouseDown }, onIntervalClick  } = state;
+    var { action: { intervalId, movedSinceMouseDown }, onIntervalClick  } = state;
 
     if (movedSinceMouseDown) {
         unsetCursorToWholeDocument(window.document);
     }
 
     capturedMouseEvents.pause();
-    var newState = state.set("dragging", null);
+    var newState = state.set("action", null);
     return newState;
 }
 
 export function deltaFunction(state, input, stream, environment, terminate) {
-    var { dragging } = state;
+    var { action, onIntervalClick } = state;
     var { capturedMouseEvents } = environment;
 
     var newState = state;
 
     if (input === TERMINATION_MSG) {
-        if (dragging) {
+        if (action && action instanceof DraggingAction) {
             newState = dragEnd(state, capturedMouseEvents);
         }
         terminate();
     } else if (input.type === "bar-mousemove") {
-        newState = state.set("displayNewIntPreview", true).set("potentialIntervalX", input.x);
+        newState = state.set("action", new PreviewAction({ x: input.x }));
     } else if (input.type === "bar-mouseleave") {
-        newState = state.set("displayNewIntPreview", false);
+        if (action && action instanceof PreviewAction) {
+            newState = state.set("action", null);
+        }
     } else if (input.type === "mousedown") {
         var { intervalId, side, initialCoords, timeBeforeDrag } = input;
         capturedMouseEvents.resume();
         newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
     } else if (input.type === "mousemove") {
-        if (dragging) {
+        if (action && action instanceof DraggingAction) {
             newState = drag(state, input);
         }
     } else if (input.type === "mouseup") {
-        if (dragging) {
-            var { dragging, onIntervalClick } = state;
-            var { intervalId, movedSinceMouseDown } = dragging;
+        if (action && action instanceof DraggingAction) {
+            var { intervalId, movedSinceMouseDown } = action;
             if (!movedSinceMouseDown) {
                 onIntervalClick(intervalId, null);
             }
@@ -90,8 +98,8 @@ export function deltaFunction(state, input, stream, environment, terminate) {
         }
     } else if (input.type === "propchange") {
         var { newProps } = input;
-        if (dragging) {
-            var { intervalId } = dragging;
+        if (action && action instanceof DraggingAction) {
+            var { intervalId } = action;
             var removedElements = getRemovedIds(state.intervals, newProps.intervals);
             if (~removedElements.indexOf(intervalId)) {
                 newState = dragEnd(state, capturedMouseEvents);

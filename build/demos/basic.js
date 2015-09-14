@@ -13078,7 +13078,7 @@
 	                    var inputObserver = _this.inputObserver;
 
 	                    if (_this.__deltaRunnging) {
-	                        throw Error(NESTED_DELTAS_ERROR);
+	                        console.error(Error(NESTED_DELTAS_ERROR));
 	                    }
 	                    _this.__deltaRunnging = true;
 	                    var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
@@ -13103,9 +13103,7 @@
 	            this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
 
 	            return new _state2.TimeBarState(_extends({
-	                dragging: null,
-	                displayNewIntPreview: false,
-	                potentialIntervalX: null
+	                action: null
 	            }, initialProps.toObject()));
 	        },
 	        componentWillReceiveProps: function componentWillReceiveProps(newProps) {
@@ -13126,14 +13124,13 @@
 	            var _this2 = this;
 
 	            var _state = this.state;
+	            var action = _state.action;
 	            var min = _state.min;
 	            var max = _state.max;
 	            var width = _state.width;
 	            var intervals = _state.intervals;
 	            var intervalContentGenerator = _state.intervalContentGenerator;
 	            var previewBoundsGenerator = _state.previewBoundsGenerator;
-	            var displayNewIntPreview = _state.displayNewIntPreview;
-	            var potentialIntervalX = _state.potentialIntervalX;
 	            var onIntervalNew = _state.onIntervalNew;
 	            var inputObserver = this.inputObserver;
 
@@ -13177,15 +13174,13 @@
 
 	            // THE PREVIEW OF A NEW INERVAL
 
-	            var intervalPreview = !displayNewIntPreview ? null : (function () {
-	                var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, potentialIntervalX / width);
+	            var intervalPreview = !(action && action instanceof _state2.PreviewAction) ? null : (function () {
+	                var x = action.x;
+	                var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, x / width);
 	                var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
 
 	                var previewClick = function previewClick(e) {
 	                    e.stopPropagation();
-
-	                    var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, potentialIntervalX / width);
-	                    var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
 	                    onIntervalNew(bounds);
 	                };
 
@@ -23830,25 +23825,6 @@
 	var TERMINATION_MSG = {};
 
 	exports.TERMINATION_MSG = TERMINATION_MSG;
-	var TimeBarState = new Immutable.Record({
-	    dragging: null,
-	    displayNewIntPreview: false,
-	    potentialIntervalX: null,
-	    // the following are digested props
-	    min: "8:00",
-	    max: "18:00",
-	    width: 400,
-	    onStartChange: _functionsUtils.noop,
-	    onEndChange: _functionsUtils.noop,
-	    onIntervalClick: _functionsUtils.noop,
-	    onIntervalDrag: _functionsUtils.noop,
-	    intervals: null,
-	    intervalContentGenerator: _functionsUtils.noop,
-	    previewBoundsGenerator: _functionsUtils.noop,
-	    onIntervalNew: _functionsUtils.noop
-	});
-
-	exports.TimeBarState = TimeBarState;
 	var Interval = new Immutable.Record({
 	    id: null,
 	    from: "12:00",
@@ -23863,15 +23839,6 @@
 	});
 
 	exports.Coordinates = Coordinates;
-	var DraggingState = new Immutable.Record({
-	    intervalId: null, // the id of the dragged interval
-	    side: "both", // one of: "left", "right", "both"
-	    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
-	    timeBeforeDrag: null, // the value of the property modified by the drag before the drag started
-	    movedSinceMouseDown: false // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
-	});
-
-	exports.DraggingState = DraggingState;
 
 	function intervalsToImmutable(intervalsArray) {
 	    return Immutable.fromJS(intervalsArray, function (key, value) {
@@ -23908,6 +23875,37 @@
 	        intervals: intervalsToImmutable(intervals)
 	    }, otherProps));
 	}
+
+	var TimeBarState = new Immutable.Record({
+	    action: null,
+	    // the following are digested props
+	    min: "8:00",
+	    max: "18:00",
+	    width: 400,
+	    onStartChange: _functionsUtils.noop,
+	    onEndChange: _functionsUtils.noop,
+	    onIntervalClick: _functionsUtils.noop,
+	    onIntervalDrag: _functionsUtils.noop,
+	    intervals: null,
+	    intervalContentGenerator: _functionsUtils.noop,
+	    previewBoundsGenerator: _functionsUtils.noop,
+	    onIntervalNew: _functionsUtils.noop
+	});
+
+	exports.TimeBarState = TimeBarState;
+	var PreviewAction = new Immutable.Record({
+	    x: null
+	});
+
+	exports.PreviewAction = PreviewAction;
+	var DraggingAction = new Immutable.Record({
+	    intervalId: null, // the id of the dragged interval
+	    side: "both", // one of: "left", "right", "both"
+	    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
+	    timeBeforeDrag: null, // the value of the property modified by the drag before the drag started
+	    movedSinceMouseDown: false // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+	});
+	exports.DraggingAction = DraggingAction;
 
 /***/ },
 /* 16 */
@@ -28859,7 +28857,7 @@
 	var _functionsUtils = __webpack_require__(12);
 
 	function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
-	    var newState = state.set("dragging", new _state.DraggingState({
+	    var newState = state.set("action", new _state.DraggingAction({
 	        intervalId: intervalId,
 	        side: side,
 	        initialCoords: initialCoords,
@@ -28870,18 +28868,18 @@
 	}
 
 	function drag(state, newCoords) {
-	    var dragging = state.dragging;
 	    var min = state.min;
 	    var max = state.max;
 	    var width = state.width;
 	    var onStartChange = state.onStartChange;
 	    var onEndChange = state.onEndChange;
 	    var onIntervalDrag = state.onIntervalDrag;
-	    var intervalId = dragging.intervalId;
-	    var side = dragging.side;
-	    var timeBeforeDrag = dragging.timeBeforeDrag;
-	    var initialCoords = dragging.initialCoords;
-	    var movedSinceMouseDown = dragging.movedSinceMouseDown;
+	    var _state$action = state.action;
+	    var intervalId = _state$action.intervalId;
+	    var side = _state$action.side;
+	    var timeBeforeDrag = _state$action.timeBeforeDrag;
+	    var initialCoords = _state$action.initialCoords;
+	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
 
 	    var newTime = (0, _functionsUtils.modifyTimeByPixels)(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
 
@@ -28901,8 +28899,8 @@
 	        })[side];
 	        (0, _functionsGlobalCursor.setCursorToWholeDocument)(window.document, cursorName);
 
-	        var newDraggingState = dragging.set("movedSinceMouseDown", true);
-	        var newState = state.set("dragging", newDraggingState);
+	        var newDraggingAction = state.action.set("movedSinceMouseDown", true);
+	        var newState = state.set("action", newDraggingAction);
 	        return newState;
 	    } else {
 	        return state;
@@ -28910,9 +28908,9 @@
 	}
 
 	function dragEnd(state, capturedMouseEvents) {
-	    var _state$dragging = state.dragging;
-	    var intervalId = _state$dragging.intervalId;
-	    var movedSinceMouseDown = _state$dragging.movedSinceMouseDown;
+	    var _state$action2 = state.action;
+	    var intervalId = _state$action2.intervalId;
+	    var movedSinceMouseDown = _state$action2.movedSinceMouseDown;
 	    var onIntervalClick = state.onIntervalClick;
 
 	    if (movedSinceMouseDown) {
@@ -28920,25 +28918,28 @@
 	    }
 
 	    capturedMouseEvents.pause();
-	    var newState = state.set("dragging", null);
+	    var newState = state.set("action", null);
 	    return newState;
 	}
 
 	function deltaFunction(state, input, stream, environment, terminate) {
-	    var dragging = state.dragging;
+	    var action = state.action;
+	    var onIntervalClick = state.onIntervalClick;
 	    var capturedMouseEvents = environment.capturedMouseEvents;
 
 	    var newState = state;
 
 	    if (input === _state.TERMINATION_MSG) {
-	        if (dragging) {
+	        if (action && action instanceof _state.DraggingAction) {
 	            newState = dragEnd(state, capturedMouseEvents);
 	        }
 	        terminate();
 	    } else if (input.type === "bar-mousemove") {
-	        newState = state.set("displayNewIntPreview", true).set("potentialIntervalX", input.x);
+	        newState = state.set("action", new _state.PreviewAction({ x: input.x }));
 	    } else if (input.type === "bar-mouseleave") {
-	        newState = state.set("displayNewIntPreview", false);
+	        if (action && action instanceof _state.PreviewAction) {
+	            newState = state.set("action", null);
+	        }
 	    } else if (input.type === "mousedown") {
 	        var intervalId = input.intervalId;
 	        var side = input.side;
@@ -28948,15 +28949,13 @@
 	        capturedMouseEvents.resume();
 	        newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
 	    } else if (input.type === "mousemove") {
-	        if (dragging) {
+	        if (action && action instanceof _state.DraggingAction) {
 	            newState = drag(state, input);
 	        }
 	    } else if (input.type === "mouseup") {
-	        if (dragging) {
-	            var dragging = state.dragging;
-	            var onIntervalClick = state.onIntervalClick;
-	            var intervalId = dragging.intervalId;
-	            var movedSinceMouseDown = dragging.movedSinceMouseDown;
+	        if (action && action instanceof _state.DraggingAction) {
+	            var intervalId = action.intervalId;
+	            var movedSinceMouseDown = action.movedSinceMouseDown;
 
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
@@ -28966,8 +28965,8 @@
 	    } else if (input.type === "propchange") {
 	        var newProps = input.newProps;
 
-	        if (dragging) {
-	            var intervalId = dragging.intervalId;
+	        if (action && action instanceof _state.DraggingAction) {
+	            var intervalId = action.intervalId;
 
 	            var removedElements = (0, _functionsUtils.getRemovedIds)(state.intervals, newProps.intervals);
 	            if (~removedElements.indexOf(intervalId)) {
