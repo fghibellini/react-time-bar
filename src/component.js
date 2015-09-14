@@ -4,12 +4,12 @@ require("!style!css!less!./styles.less");
 var rx = require("rx");
 var React = require("react");
 
-require("rx-dom");
-
 import { timeToPercentil, percentilToTime, addMinutes, minutesToStr, timeStrToMinutes } from './functions/time-functions';
 import { mergeInputs } from './functions/utils';
 import { TimeBarState, DraggingState, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
 import { deltaFunction } from './delta-function';
+import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
+import { defaultPreviewBoundsGenerator, defaultIntervalContentGenerator } from './functions/common';
 
 var noop = rx.helpers.noop;
 
@@ -17,71 +17,21 @@ var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trig
 var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
 var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
 
-/**
- * Returns a pausable observable that captures all the mouseups and mousedowns on the passed domNode.
- * When the observable is enabled the events are captured and their propagation is stopped.
- * When the observable is paused it behaves as if it didn't exist.
- * The observable is paused by default.
- */
-export function captureMouseEventsOnDomNode(domNode) {
-    var mouseUps   = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
-    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
-    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]).do(e => e.stopPropagation());
-    return inputStreams;
-}
+export function getTimeBarComponent(environmentArgs) {
 
-var intervalPreviewWidth = 30;
-// TODO work on this function
-/**
- * assumes the intervals are ordered
- */
-function defaultNewIntervalPreviewBounds(startTime, min, max, intervals) {
-    startTime = timeStrToMinutes(startTime);
-
-    var prevInterval, nextInterval;
-    for (var i = 0, interval; interval = intervals[i]; i++) {
-        var iFrom = timeStrToMinutes(interval.from);
-        var iTo = timeStrToMinutes(interval.to);
-        if (iTo <= startTime)
-            prevInterval = interval;
-        if (iFrom > startTime) {
-            nextInterval = interval;
-            break;
-        }
-    }
-
-    var minStartTime = prevInterval ? timeStrToMinutes(prevInterval.to) : timeStrToMinutes(min);
-    var maxEndTime = nextInterval ? timeStrToMinutes(nextInterval.from) : timeStrToMinutes(max);
-
-    if (intervalPreviewWidth > (maxEndTime - minStartTime)) {
-        return null;
-    } else {
-        var startTimeUnbounded = startTime - intervalPreviewWidth / 2;
-        var start, end;
-        if (startTimeUnbounded < minStartTime) {
-            start = minStartTime;
-            end = start + intervalPreviewWidth;
-        } else {
-            var endTimeUnbounded = startTime + intervalPreviewWidth / 2;
-            end = endTimeUnbounded > maxEndTime ? maxEndTime : endTimeUnbounded;
-            start = end - intervalPreviewWidth;
-        }
-        return { from: minutesToStr(start), to: minutesToStr(end) };
-    }
-}
-
-export function getTimeBarComponent(environment) {
-
-    if (!environment) {
+    if (!environmentArgs) {
         throw Error(NO_ENVIRONMENT_ERROR);
     }
-    if (!environment.capturedMouseEvents) {
+    if (!environmentArgs.capturedMouseEvents) {
         throw Error(NO_CAPTURED_EVENTS_STREAM_ERROR);
     }
 
-    var capturedMouseEvents = environment.capturedMouseEvents.pausable();
+    var capturedMouseEvents = environmentArgs.capturedMouseEvents.pausable();
     capturedMouseEvents.pause();
-    environment.capturedMouseEvents = capturedMouseEvents; // TODO modifying the environment object is not ideal, ?maybe clone it?
+
+    var environment = {
+        capturedMouseEvents: capturedMouseEvents
+    };
 
     return React.createClass({
         displayName: "TimeBar",
@@ -102,9 +52,9 @@ export function getTimeBarComponent(environment) {
                 to: React.PropTypes.string,
                 className: React.PropTypes.string
             })),
-            intervalContentGen: React.PropTypes.func,
-            newIntervalPreviewBounds: React.PropTypes.func,
-            createNewInterval: React.PropTypes.func
+            intervalContentGenerator: React.PropTypes.func,
+            previewBoundsGenerator: React.PropTypes.func,
+            onIntervalNew: React.PropTypes.func
         },
         getDefaultProps: function() {
             return {
@@ -116,9 +66,9 @@ export function getTimeBarComponent(environment) {
                 onIntervalClick: noop,
                 onIntervalDrag: noop,
                 intervals: [],
-                intervalContentGen: interval => <span className="interval-content">{interval.from + " - " + interval.to}</span>,
-                newIntervalPreviewBounds: defaultNewIntervalPreviewBounds,
-                createNewInterval: noop
+                intervalContentGenerator: defaultIntervalContentGenerator,
+                previewBoundsGenerator: defaultPreviewBoundsGenerator,
+                onIntervalNew: noop
             };
         },
         getAllInputs: function() {
@@ -128,21 +78,25 @@ export function getTimeBarComponent(environment) {
         },
         setupStateMachine: function(allInputs, deltaFunction) {
             var SM_Subscription = allInputs.subscribe(update => {
-                /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
-                var { state, inputObserver } = this;
+                try {
+                    /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
+                    var { state, inputObserver } = this;
 
-                if (this.__deltaRunnging) { throw Error(NESTED_DELTAS_ERROR); }
-                this.__deltaRunnging = true;
-                var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
-                this.__deltaRunnging = false;
+                    if (this.__deltaRunnging) { throw Error(NESTED_DELTAS_ERROR); }
+                    this.__deltaRunnging = true;
+                    var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
+                    this.__deltaRunnging = false;
 
-                if (newState !== state) {
-                    this.replaceState(newState);
+                    if (newState !== state) {
+                        this.replaceState(newState);
+                    }
+                } catch (e) {
+                    // Prevent unexpected errors to freeze the time bar.
+                    console.error(e);
                 }
             }, error => {
+                // One of the input streams failed.
                 console.error(error);
-            }, () => {
-                // noop
             });
         },
         getInitialState: function() {
@@ -171,7 +125,17 @@ export function getTimeBarComponent(environment) {
             inputObserver.onNext(TERMINATION_MSG);
         },
         render: function() {
-            var { state: { min, max, width, intervals, intervalContentGen, potentialIntervalX, newIntervalPreviewBounds, displayNewIntPreview, createNewInterval }, inputObserver } = this;
+            var {
+                state: {
+                    min, max, width, intervals,
+                    intervalContentGenerator, previewBoundsGenerator,
+                    displayNewIntPreview, potentialIntervalX,
+                    onIntervalNew
+                },
+                inputObserver
+            } = this;
+
+            // THE DISPLAYED INTERVALS
 
             var mappedIntervals = intervals.map((interval, intIndex) => {
                 var start = width * timeToPercentil(min, max, interval.from);
@@ -201,9 +165,36 @@ export function getTimeBarComponent(environment) {
                          onMouseDown={leftHandleDragStart} />
                     <div className="interval-handle interval-handle-right"
                          onMouseDown={rightHandleDragStart} />
-                    {intervalContentGen(interval)}
+                    {intervalContentGenerator(interval)}
                 </div>);
             });
+
+            // THE PREVIEW OF A NEW INERVAL
+
+            var intervalPreview = !displayNewIntPreview ? null : (() => {
+                var startTime = percentilToTime(min, max, potentialIntervalX / width);
+                var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
+
+                var previewClick = e => {
+                    e.stopPropagation();
+
+                    var startTime = percentilToTime(min, max, potentialIntervalX / width);
+                    var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
+                    onIntervalNew(bounds);
+                };
+
+                if (bounds === null) {
+                    return null;
+                } else {
+                    var start = width * timeToPercentil(min, max, bounds.from);
+                    var end = width * timeToPercentil(min, max, bounds.to);
+                    return (<div className="new-interval"
+                                 style={{ left: start, width: end - start }}
+                                 onClick={previewClick}>+</div>);
+                }
+            })();
+
+            // THE TIME BAR ITSELF
 
             var barMouseMove = e => {
                 var barElement = React.findDOMNode(this);
@@ -228,33 +219,11 @@ export function getTimeBarComponent(environment) {
                 });
             };
 
-            var previewClick = e => {
-                e.stopPropagation();
-                var startTime = percentilToTime(min, max, potentialIntervalX / width);
-                var bounds = newIntervalPreviewBounds(startTime, min, max, intervals.toJS());
-                createNewInterval(bounds);
-            };
-
-            var newIntervalGhost = !displayNewIntPreview ? null : (() => {
-                var startTime = percentilToTime(min, max, potentialIntervalX / width);
-                var bounds = newIntervalPreviewBounds(startTime, min, max, intervals.toJS());
-
-                if (bounds === null) {
-                    return null;
-                } else {
-                    var start = width * timeToPercentil(min, max, bounds.from);
-                    var end = width * timeToPercentil(min, max, bounds.to);
-                    return (<div className="new-interval"
-                                 style={{ left: start, width: end - start }}
-                                 onClick={previewClick}>+</div>);
-                }
-            })();
-
             return (<div className="time-bar"
                         style={{ width: width }}
                         onMouseMove={barMouseMove}
                         onMouseLeave={barMouseLeave}>
-                {newIntervalGhost}
+                {intervalPreview}
                 {mappedIntervals}
             </div>);
         }

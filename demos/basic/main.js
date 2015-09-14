@@ -174,8 +174,8 @@ function refresh() {
                  onEndChange={updateEnd}
                  onIntervalClick={onIntervalClick}
                  onIntervalDrag={onIntervalDrag}
-                 intervalContentGen={intervalContentGen}
-                 createNewInterval={genNewInterval} />,
+                 onIntervalNew={genNewInterval}
+                 intervalContentGenerator={intervalContentGen} />,
         window.document.getElementById("container")
     );
 }

@@ -18,9 +18,9 @@ export var TimeBarState = new Immutable.Record({
     onIntervalClick: noop,
     onIntervalDrag: noop,
     intervals: null,
-    intervalContentGen: noop,
-    newIntervalPreviewBounds: noop,
-    createNewInterval: noop
+    intervalContentGenerator: noop,
+    previewBoundsGenerator: noop,
+    onIntervalNew: noop
 });
 
 export var Interval = new Immutable.Record({
@@ -62,9 +62,9 @@ export var Props = new Immutable.Record({
     onIntervalClick: null,
     onIntervalDrag: null,
     intervals: new Immutable.List([]),
-    intervalContentGen: null,
-    newIntervalPreviewBounds: null,
-    createNewInterval: null
+    intervalContentGenerator: null,
+    previewBoundsGenerator: null,
+    onIntervalNew: null
 });
 
 export function propsToImmutable(propsObject) {
