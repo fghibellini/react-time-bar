@@ -21,6 +21,10 @@ function getOptionalDependency($injector, dependencyDescriptor) {
     }
 }
 
+function isPure(fnName) {
+    return !!~['previewBoundsGenerator', 'intervalContentGenerator'].indexOf(fnName);
+}
+
 angular.module("react-timebar", [])
 
 .directive("reactTimeBar", ($injector) => {
@@ -44,7 +48,7 @@ angular.module("react-timebar", [])
             }, newValues => {
                 var withWrappedFunctions = {};
                 for (var i in newValues) {
-                    withWrappedFunctions[i] = (typeof newValues[i] === 'function') ?  bindToScope(scope, newValues[i]) : newValues[i];
+                    withWrappedFunctions[i] = (typeof newValues[i] === 'function' && !isPure(i)) ?  bindToScope(scope, newValues[i]) : newValues[i];
                 }
 
                 React.render(

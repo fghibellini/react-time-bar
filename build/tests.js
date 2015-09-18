@@ -41511,6 +41511,10 @@
 	    }
 	}
 
+	function isPure(fnName) {
+	    return !! ~['previewBoundsGenerator', 'intervalContentGenerator'].indexOf(fnName);
+	}
+
 	angular.module("react-timebar", []).directive("reactTimeBar", function ($injector) {
 	    var inputStreams = getOptionalDependency($injector, 'reactTimeBar.Inputs');
 	    var TimeBarComponent = inputStreams ? (0, _component.getTimeBarComponent)({ capturedMouseEvents: inputStreams }) : _component.TimeBar;
@@ -41552,7 +41556,7 @@
 	            }, function (newValues) {
 	                var withWrappedFunctions = {};
 	                for (var i in newValues) {
-	                    withWrappedFunctions[i] = typeof newValues[i] === 'function' ? bindToScope(scope, newValues[i]) : newValues[i];
+	                    withWrappedFunctions[i] = typeof newValues[i] === 'function' && !isPure(i) ? bindToScope(scope, newValues[i]) : newValues[i];
 	                }
 
 	                React.render(React.createElement(TimeBarComponent, withWrappedFunctions), element[0]);
