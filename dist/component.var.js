@@ -60,7 +60,6 @@ var ReactTimeBar =
 
 	var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
-	exports.captureMouseEventsOnDomNode = captureMouseEventsOnDomNode;
 	exports.getTimeBarComponent = getTimeBarComponent;
 
 	var _functionsTimeFunctions = __webpack_require__(2);
@@ -71,12 +70,14 @@ var ReactTimeBar =
 
 	var _deltaFunction = __webpack_require__(7);
 
-	__webpack_require__(9);
+	var _mouseEventCapturing = __webpack_require__(9);
+
+	var _functionsCommon = __webpack_require__(11);
+
+	__webpack_require__(13);
 
 	var rx = __webpack_require__(4);
-	var React = __webpack_require__(13);
-
-	__webpack_require__(14);
+	var React = __webpack_require__(12);
 
 	var noop = rx.helpers.noop;
 
@@ -84,34 +85,21 @@ var ReactTimeBar =
 	var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
 	var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
 
-	/**
-	 * Returns a pausable observable that captures all the mouseups and mousedowns on the passed domNode.
-	 * When the observable is enabled the events are captured and their propagation is stopped.
-	 * When the observable is paused it behaves as if it didn't exist.
-	 * The observable is paused by default.
-	 */
+	function getTimeBarComponent(environmentArgs) {
 
-	function captureMouseEventsOnDomNode(domNode) {
-	    var mouseUps = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
-	    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
-	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
-	        return e.stopPropagation();
-	    });
-	    return inputStreams;
-	}
-
-	function getTimeBarComponent(environment) {
-
-	    if (!environment) {
+	    if (!environmentArgs) {
 	        throw Error(NO_ENVIRONMENT_ERROR);
 	    }
-	    if (!environment.capturedMouseEvents) {
+	    if (!environmentArgs.capturedMouseEvents) {
 	        throw Error(NO_CAPTURED_EVENTS_STREAM_ERROR);
 	    }
 
-	    var capturedMouseEvents = environment.capturedMouseEvents.pausable();
+	    var capturedMouseEvents = environmentArgs.capturedMouseEvents.pausable();
 	    capturedMouseEvents.pause();
-	    environment.capturedMouseEvents = capturedMouseEvents; // TODO modifying the environment object is not ideal, ?maybe clone it?
+
+	    var environment = {
+	        capturedMouseEvents: capturedMouseEvents
+	    };
 
 	    return React.createClass({
 	        displayName: "TimeBar",
@@ -128,7 +116,10 @@ var ReactTimeBar =
 	                from: React.PropTypes.string,
 	                to: React.PropTypes.string,
 	                className: React.PropTypes.string
-	            }))
+	            })),
+	            intervalContentGenerator: React.PropTypes.func,
+	            previewBoundsGenerator: React.PropTypes.func,
+	            onIntervalNew: React.PropTypes.func
 	        },
 	        getDefaultProps: function getDefaultProps() {
 	            return {
@@ -139,7 +130,10 @@ var ReactTimeBar =
 	                onEndChange: noop,
 	                onIntervalClick: noop,
 	                onIntervalDrag: noop,
-	                intervals: []
+	                intervals: [],
+	                intervalContentGenerator: _functionsCommon.defaultIntervalContentGenerator,
+	                previewBoundsGenerator: _functionsCommon.defaultPreviewBoundsGenerator,
+	                onIntervalNew: noop
 	            };
 	        },
 	        getAllInputs: function getAllInputs() {
@@ -151,24 +145,28 @@ var ReactTimeBar =
 	            var _this = this;
 
 	            var SM_Subscription = allInputs.subscribe(function (update) {
-	                /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
-	                var state = _this.state;
-	                var inputObserver = _this.inputObserver;
+	                try {
+	                    /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
+	                    var state = _this.state;
+	                    var inputObserver = _this.inputObserver;
 
-	                if (_this.__deltaRunnging) {
-	                    throw Error(NESTED_DELTAS_ERROR);
-	                }
-	                _this.__deltaRunnging = true;
-	                var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
-	                _this.__deltaRunnging = false;
+	                    if (_this.__deltaRunnging) {
+	                        console.error(Error(NESTED_DELTAS_ERROR));
+	                    }
+	                    _this.__deltaRunnging = true;
+	                    var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
+	                    _this.__deltaRunnging = false;
 
-	                if (newState !== state) {
-	                    _this.replaceState(newState);
+	                    if (newState !== state) {
+	                        _this.replaceState(newState);
+	                    }
+	                } catch (e) {
+	                    // Prevent unexpected errors to freeze the time bar.
+	                    console.error(e);
 	                }
 	            }, function (error) {
+	                // One of the input streams failed.
 	                console.error(error);
-	            }, function () {
-	                // noop
 	            });
 	        },
 	        getInitialState: function getInitialState() {
@@ -178,7 +176,7 @@ var ReactTimeBar =
 	            this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
 
 	            return new _state2.TimeBarState(_extends({
-	                dragging: null
+	                action: null
 	            }, initialProps.toObject()));
 	        },
 	        componentWillReceiveProps: function componentWillReceiveProps(newProps) {
@@ -196,12 +194,20 @@ var ReactTimeBar =
 	            inputObserver.onNext(_state2.TERMINATION_MSG);
 	        },
 	        render: function render() {
+	            var _this2 = this;
+
 	            var _state = this.state;
+	            var action = _state.action;
 	            var min = _state.min;
 	            var max = _state.max;
 	            var width = _state.width;
 	            var intervals = _state.intervals;
+	            var intervalContentGenerator = _state.intervalContentGenerator;
+	            var previewBoundsGenerator = _state.previewBoundsGenerator;
+	            var onIntervalNew = _state.onIntervalNew;
 	            var inputObserver = this.inputObserver;
+
+	            // THE DISPLAYED INTERVALS
 
 	            var mappedIntervals = intervals.map(function (interval, intIndex) {
 	                var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.from);
@@ -234,14 +240,70 @@ var ReactTimeBar =
 	                    React.createElement("div", { className: "interval-handle interval-handle-left",
 	                        onMouseDown: leftHandleDragStart }),
 	                    React.createElement("div", { className: "interval-handle interval-handle-right",
-	                        onMouseDown: rightHandleDragStart })
+	                        onMouseDown: rightHandleDragStart }),
+	                    intervalContentGenerator(interval)
 	                );
 	            });
+
+	            // THE PREVIEW OF A NEW INERVAL
+
+	            var intervalPreview = !(action && action instanceof _state2.PreviewAction) ? null : (function () {
+	                var x = action.x;
+	                var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, x / width);
+	                var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
+
+	                var previewClick = function previewClick(e) {
+	                    e.stopPropagation();
+	                    onIntervalNew(bounds);
+	                };
+
+	                if (bounds === null) {
+	                    return null;
+	                } else {
+	                    var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, bounds.from);
+	                    var end = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, bounds.to);
+	                    return React.createElement(
+	                        "div",
+	                        { className: "new-interval",
+	                            style: { left: start, width: end - start },
+	                            onClick: previewClick },
+	                        "+"
+	                    );
+	                }
+	            })();
+
+	            // THE TIME BAR ITSELF
+
+	            var barMouseMove = function barMouseMove(e) {
+	                var barElement = React.findDOMNode(_this2);
+	                if (e.target === barElement || e.target.className === "new-interval") {
+	                    var boundingRect = barElement.getBoundingClientRect();
+	                    var x = e.pageX - boundingRect.left;
+
+	                    inputObserver.onNext({
+	                        type: "bar-mousemove",
+	                        x: x
+	                    });
+	                } else {
+	                    inputObserver.onNext({
+	                        type: "bar-mouseleave"
+	                    });
+	                }
+	            };
+
+	            var barMouseLeave = function barMouseLeave(e) {
+	                inputObserver.onNext({
+	                    type: "bar-mouseleave"
+	                });
+	            };
 
 	            return React.createElement(
 	                "div",
 	                { className: "time-bar",
-	                    style: { width: width } },
+	                    style: { width: width },
+	                    onMouseMove: barMouseMove,
+	                    onMouseLeave: barMouseLeave },
+	                intervalPreview,
 	                mappedIntervals
 	            );
 	        }
@@ -250,7 +312,7 @@ var ReactTimeBar =
 
 	;
 
-	var TimeBar = window && window.document ? getTimeBarComponent({ capturedMouseEvents: captureMouseEventsOnDomNode(window.document) }) : null;
+	var TimeBar = window && window.document ? getTimeBarComponent({ capturedMouseEvents: (0, _mouseEventCapturing.captureMouseEventsOnDomNode)(window.document) }) : null;
 	exports.TimeBar = TimeBar;
 
 /***/ },
@@ -265,6 +327,8 @@ var ReactTimeBar =
 	exports.timeStrToMinutes = timeStrToMinutes;
 	exports.minutesToStr = minutesToStr;
 	exports.timeToPercentil = timeToPercentil;
+	exports.percentilToTime = percentilToTime;
+	exports.addMinutes = addMinutes;
 
 	function parseDec(s) {
 	    return parseInt(s, 10);
@@ -307,6 +371,19 @@ var ReactTimeBar =
 	    var tMinutes = timeStrToMinutes(t);
 	    var tFromStart = tMinutes - minMinutes;
 	    return tFromStart / durationMinutes;
+	}
+
+	function percentilToTime(min, max, percentil) {
+	    var minMinutes = timeStrToMinutes(min);
+	    var maxMinutes = timeStrToMinutes(max);
+	    var durationMinutes = maxMinutes - minMinutes;
+	    var minutes = Math.floor(percentil * durationMinutes);
+	    return minutesToStr(minMinutes + minutes);
+	}
+
+	function addMinutes(time, delta) {
+	    var minutes = timeStrToMinutes(time);
+	    return minutesToStr(minutes + delta);
 	}
 
 /***/ },
@@ -394,20 +471,6 @@ var ReactTimeBar =
 	var TERMINATION_MSG = {};
 
 	exports.TERMINATION_MSG = TERMINATION_MSG;
-	var TimeBarState = new Immutable.Record({
-	    dragging: null,
-	    // the following are digested props
-	    min: "8:00",
-	    max: "18:00",
-	    width: 400,
-	    onStartChange: _functionsUtils.noop,
-	    onEndChange: _functionsUtils.noop,
-	    onIntervalClick: _functionsUtils.noop,
-	    onIntervalDrag: _functionsUtils.noop,
-	    intervals: null
-	});
-
-	exports.TimeBarState = TimeBarState;
 	var Interval = new Immutable.Record({
 	    id: null,
 	    from: "12:00",
@@ -422,15 +485,6 @@ var ReactTimeBar =
 	});
 
 	exports.Coordinates = Coordinates;
-	var DraggingState = new Immutable.Record({
-	    intervalId: null, // the id of the dragged interval
-	    side: "both", // one of: "left", "right", "both"
-	    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
-	    timeBeforeDrag: null, // the value of the property modified by the drag before the drag started
-	    movedSinceMouseDown: false // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
-	});
-
-	exports.DraggingState = DraggingState;
 
 	function intervalsToImmutable(intervalsArray) {
 	    return Immutable.fromJS(intervalsArray, function (key, value) {
@@ -450,7 +504,10 @@ var ReactTimeBar =
 	    onEndChange: null,
 	    onIntervalClick: null,
 	    onIntervalDrag: null,
-	    intervals: new Immutable.List([])
+	    intervals: new Immutable.List([]),
+	    intervalContentGenerator: null,
+	    previewBoundsGenerator: null,
+	    onIntervalNew: null
 	});
 
 	exports.Props = Props;
@@ -464,6 +521,37 @@ var ReactTimeBar =
 	        intervals: intervalsToImmutable(intervals)
 	    }, otherProps));
 	}
+
+	var TimeBarState = new Immutable.Record({
+	    action: null,
+	    // the following are digested props
+	    min: "8:00",
+	    max: "18:00",
+	    width: 400,
+	    onStartChange: _functionsUtils.noop,
+	    onEndChange: _functionsUtils.noop,
+	    onIntervalClick: _functionsUtils.noop,
+	    onIntervalDrag: _functionsUtils.noop,
+	    intervals: null,
+	    intervalContentGenerator: _functionsUtils.noop,
+	    previewBoundsGenerator: _functionsUtils.noop,
+	    onIntervalNew: _functionsUtils.noop
+	});
+
+	exports.TimeBarState = TimeBarState;
+	var PreviewAction = new Immutable.Record({
+	    x: null
+	});
+
+	exports.PreviewAction = PreviewAction;
+	var DraggingAction = new Immutable.Record({
+	    intervalId: null, // the id of the dragged interval
+	    side: "both", // one of: "left", "right", "both"
+	    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
+	    timeBeforeDrag: null, // the value of the property modified by the drag before the drag started
+	    movedSinceMouseDown: false // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+	});
+	exports.DraggingAction = DraggingAction;
 
 /***/ },
 /* 6 */
@@ -489,7 +577,7 @@ var ReactTimeBar =
 	var _functionsUtils = __webpack_require__(3);
 
 	function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
-	    var newState = state.set("dragging", new _state.DraggingState({
+	    var newState = state.set("action", new _state.DraggingAction({
 	        intervalId: intervalId,
 	        side: side,
 	        initialCoords: initialCoords,
@@ -500,18 +588,18 @@ var ReactTimeBar =
 	}
 
 	function drag(state, newCoords) {
-	    var dragging = state.dragging;
 	    var min = state.min;
 	    var max = state.max;
 	    var width = state.width;
 	    var onStartChange = state.onStartChange;
 	    var onEndChange = state.onEndChange;
 	    var onIntervalDrag = state.onIntervalDrag;
-	    var intervalId = dragging.intervalId;
-	    var side = dragging.side;
-	    var timeBeforeDrag = dragging.timeBeforeDrag;
-	    var initialCoords = dragging.initialCoords;
-	    var movedSinceMouseDown = dragging.movedSinceMouseDown;
+	    var _state$action = state.action;
+	    var intervalId = _state$action.intervalId;
+	    var side = _state$action.side;
+	    var timeBeforeDrag = _state$action.timeBeforeDrag;
+	    var initialCoords = _state$action.initialCoords;
+	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
 
 	    var newTime = (0, _functionsUtils.modifyTimeByPixels)(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
 
@@ -531,8 +619,8 @@ var ReactTimeBar =
 	        })[side];
 	        (0, _functionsGlobalCursor.setCursorToWholeDocument)(window.document, cursorName);
 
-	        var newDraggingState = dragging.set("movedSinceMouseDown", true);
-	        var newState = state.set("dragging", newDraggingState);
+	        var newDraggingAction = state.action.set("movedSinceMouseDown", true);
+	        var newState = state.set("action", newDraggingAction);
 	        return newState;
 	    } else {
 	        return state;
@@ -540,9 +628,9 @@ var ReactTimeBar =
 	}
 
 	function dragEnd(state, capturedMouseEvents) {
-	    var _state$dragging = state.dragging;
-	    var intervalId = _state$dragging.intervalId;
-	    var movedSinceMouseDown = _state$dragging.movedSinceMouseDown;
+	    var _state$action2 = state.action;
+	    var intervalId = _state$action2.intervalId;
+	    var movedSinceMouseDown = _state$action2.movedSinceMouseDown;
 	    var onIntervalClick = state.onIntervalClick;
 
 	    if (movedSinceMouseDown) {
@@ -550,21 +638,28 @@ var ReactTimeBar =
 	    }
 
 	    capturedMouseEvents.pause();
-	    var newState = state.set("dragging", null);
+	    var newState = state.set("action", null);
 	    return newState;
 	}
 
 	function deltaFunction(state, input, stream, environment, terminate) {
-	    var dragging = state.dragging;
+	    var action = state.action;
+	    var onIntervalClick = state.onIntervalClick;
 	    var capturedMouseEvents = environment.capturedMouseEvents;
 
 	    var newState = state;
 
 	    if (input === _state.TERMINATION_MSG) {
-	        if (dragging) {
+	        if (action && action instanceof _state.DraggingAction) {
 	            newState = dragEnd(state, capturedMouseEvents);
 	        }
 	        terminate();
+	    } else if (input.type === "bar-mousemove") {
+	        newState = state.set("action", new _state.PreviewAction({ x: input.x }));
+	    } else if (input.type === "bar-mouseleave") {
+	        if (action && action instanceof _state.PreviewAction) {
+	            newState = state.set("action", null);
+	        }
 	    } else if (input.type === "mousedown") {
 	        var intervalId = input.intervalId;
 	        var side = input.side;
@@ -574,15 +669,13 @@ var ReactTimeBar =
 	        capturedMouseEvents.resume();
 	        newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
 	    } else if (input.type === "mousemove") {
-	        if (dragging) {
+	        if (action && action instanceof _state.DraggingAction) {
 	            newState = drag(state, input);
 	        }
 	    } else if (input.type === "mouseup") {
-	        if (dragging) {
-	            var dragging = state.dragging;
-	            var onIntervalClick = state.onIntervalClick;
-	            var intervalId = dragging.intervalId;
-	            var movedSinceMouseDown = dragging.movedSinceMouseDown;
+	        if (action && action instanceof _state.DraggingAction) {
+	            var intervalId = action.intervalId;
+	            var movedSinceMouseDown = action.movedSinceMouseDown;
 
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
@@ -592,8 +685,8 @@ var ReactTimeBar =
 	    } else if (input.type === "propchange") {
 	        var newProps = input.newProps;
 
-	        if (dragging) {
-	            var intervalId = dragging.intervalId;
+	        if (action && action instanceof _state.DraggingAction) {
+	            var intervalId = action.intervalId;
 
 	            var removedElements = (0, _functionsUtils.getRemovedIds)(state.intervals, newProps.intervals);
 	            if (~removedElements.indexOf(intervalId)) {
@@ -638,13 +731,113 @@ var ReactTimeBar =
 /* 9 */
 /***/ function(module, exports, __webpack_require__) {
 
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.captureMouseEventsOnDomNode = captureMouseEventsOnDomNode;
+
+	var rx = __webpack_require__(4);
+
+	__webpack_require__(10);
+
+	/**
+	 * Returns an observable that captures and stops the propagation of all the mouseups and mousemoves on the passed domNode.
+	 */
+
+	function captureMouseEventsOnDomNode(domNode) {
+	    var mouseUps = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
+	    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
+	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
+	        return e.stopPropagation();
+	    });
+	    return inputStreams;
+	}
+
+/***/ },
+/* 10 */
+/***/ function(module, exports) {
+
+	module.exports = Rx.DOM;
+
+/***/ },
+/* 11 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.defaultPreviewBoundsGenerator = defaultPreviewBoundsGenerator;
+	exports.defaultIntervalContentGenerator = defaultIntervalContentGenerator;
+
+	var _timeFunctions = __webpack_require__(2);
+
+	var React = __webpack_require__(12);
+
+	var intervalPreviewWidth = 30;
+
+	function defaultPreviewBoundsGenerator(startTime, min, max, intervals) {
+	    startTime = (0, _timeFunctions.timeStrToMinutes)(startTime);
+
+	    var prevInterval, nextInterval;
+	    for (var i = 0, interval; interval = intervals[i]; i++) {
+	        var iFrom = (0, _timeFunctions.timeStrToMinutes)(interval.from);
+	        var iTo = (0, _timeFunctions.timeStrToMinutes)(interval.to);
+	        if (iTo <= startTime) prevInterval = interval;
+	        if (iFrom > startTime) {
+	            nextInterval = interval;
+	            break;
+	        }
+	    }
+
+	    var minStartTime = prevInterval ? (0, _timeFunctions.timeStrToMinutes)(prevInterval.to) : (0, _timeFunctions.timeStrToMinutes)(min);
+	    var maxEndTime = nextInterval ? (0, _timeFunctions.timeStrToMinutes)(nextInterval.from) : (0, _timeFunctions.timeStrToMinutes)(max);
+
+	    if (intervalPreviewWidth > maxEndTime - minStartTime) {
+	        return null;
+	    } else {
+	        var startTimeUnbounded = startTime - intervalPreviewWidth / 2;
+	        var start, end;
+	        if (startTimeUnbounded < minStartTime) {
+	            start = minStartTime;
+	            end = start + intervalPreviewWidth;
+	        } else {
+	            var endTimeUnbounded = startTime + intervalPreviewWidth / 2;
+	            end = endTimeUnbounded > maxEndTime ? maxEndTime : endTimeUnbounded;
+	            start = end - intervalPreviewWidth;
+	        }
+	        return { from: (0, _timeFunctions.minutesToStr)(start), to: (0, _timeFunctions.minutesToStr)(end) };
+	    }
+	}
+
+	function defaultIntervalContentGenerator(interval) {
+	    return React.createElement(
+	        "span",
+	        { className: "interval-content" },
+	        interval.from + " - " + interval.to
+	    );
+	}
+
+/***/ },
+/* 12 */
+/***/ function(module, exports) {
+
+	module.exports = React;
+
+/***/ },
+/* 13 */
+/***/ function(module, exports, __webpack_require__) {
+
 	// style-loader: Adds some css to the DOM by adding a <style> tag
 
 	// load the styles
-	var content = __webpack_require__(10);
+	var content = __webpack_require__(14);
 	if(typeof content === 'string') content = [[module.id, content, '']];
 	// add the styles to the DOM
-	var update = __webpack_require__(12)(content, {});
+	var update = __webpack_require__(16)(content, {});
 	if(content.locals) module.exports = content.locals;
 	// Hot Module Replacement
 	if(false) {
@@ -661,21 +854,21 @@ var ReactTimeBar =
 	}
 
 /***/ },
-/* 10 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
-	exports = module.exports = __webpack_require__(11)();
+	exports = module.exports = __webpack_require__(15)();
 	// imports
 
 
 	// module
-	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
+	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.new-interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  width: 30px;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  cursor: pointer;\n  font-weight: bold;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-content {\n  cursor: default;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
 
 	// exports
 
 
 /***/ },
-/* 11 */
+/* 15 */
 /***/ function(module, exports) {
 
 	/*
@@ -731,7 +924,7 @@ var ReactTimeBar =
 
 
 /***/ },
-/* 12 */
+/* 16 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*
@@ -954,18 +1147,6 @@ var ReactTimeBar =
 			URL.revokeObjectURL(oldSrc);
 	}
 
-
-/***/ },
-/* 13 */
-/***/ function(module, exports) {
-
-	module.exports = React;
-
-/***/ },
-/* 14 */
-/***/ function(module, exports) {
-
-	module.exports = Rx.DOM;
 
 /***/ }
 /******/ ]);
