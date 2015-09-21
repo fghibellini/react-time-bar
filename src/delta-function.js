@@ -25,7 +25,7 @@ function drag(state, newCoords) {
         }
     } = state;
 
-    var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
+    var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.clientX - initialCoords.x);
 
     if (side === "left") {
         onStartChange(intervalId, newTime);

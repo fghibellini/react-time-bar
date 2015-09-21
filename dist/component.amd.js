@@ -600,7 +600,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react"], function(__WEBPACK
 	    var initialCoords = _state$action.initialCoords;
 	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
 
-	    var newTime = (0, _functionsUtils.modifyTimeByPixels)(min, max, width, timeBeforeDrag, newCoords.x - initialCoords.x);
+	    var newTime = (0, _functionsUtils.modifyTimeByPixels)(min, max, width, timeBeforeDrag, newCoords.clientX - initialCoords.x);
 
 	    if (side === "left") {
 	        onStartChange(intervalId, newTime);
