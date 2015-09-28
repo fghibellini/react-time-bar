@@ -7,8 +7,8 @@ export var TERMINATION_MSG = {};
 
 export var Interval = new Immutable.Record({
     id: null,
-    from: "12:00",
-    to: "13:00",
+    from: null,
+    to: null,
     className: ""
 });
 
@@ -28,7 +28,6 @@ export function intervalsToImmutable(intervalsArray) {
 }
 
 export var Props = new Immutable.Record({
-    min: null,
     max: null,
     width: null,
     onStartChange: null,
@@ -51,8 +50,7 @@ export function propsToImmutable(propsObject) {
 export var TimeBarState = new Immutable.Record({
     action: null,
     // the following are digested props
-    min: "8:00",
-    max: "18:00",
+    max: 1440,
     width: 400,
     onStartChange: noop,
     onEndChange: noop,

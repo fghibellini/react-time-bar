@@ -1,26 +1,21 @@
 
 var React = require("react");
 
-import { timeStrToMinutes, minutesToStr } from './time-functions';
-
-var intervalPreviewWidth = 30;
-export function defaultPreviewBoundsGenerator(startTime, min, max, intervals) {
-    startTime = timeStrToMinutes(startTime);
+export function defaultPreviewBoundsGenerator(startTime, max, intervals) {
+    var intervalPreviewWidth = 60;
 
     var prevInterval, nextInterval;
     for (var i = 0, interval; interval = intervals[i]; i++) {
-        var iFrom = timeStrToMinutes(interval.from);
-        var iTo = timeStrToMinutes(interval.to);
-        if (iTo <= startTime)
+        if (interval.to <= startTime)
             prevInterval = interval;
-        if (iFrom > startTime) {
+        if (interval.from > startTime) {
             nextInterval = interval;
             break;
         }
     }
 
-    var minStartTime = prevInterval ? timeStrToMinutes(prevInterval.to) : timeStrToMinutes(min);
-    var maxEndTime = nextInterval ? timeStrToMinutes(nextInterval.from) : timeStrToMinutes(max);
+    var minStartTime = prevInterval ? prevInterval.to : 0;
+    var maxEndTime = nextInterval ? nextInterval.from : max;
 
     if (intervalPreviewWidth > (maxEndTime - minStartTime)) {
         return null;
@@ -35,10 +30,6 @@ export function defaultPreviewBoundsGenerator(startTime, min, max, intervals) {
             end = endTimeUnbounded > maxEndTime ? maxEndTime : endTimeUnbounded;
             start = end - intervalPreviewWidth;
         }
-        return { from: minutesToStr(start), to: minutesToStr(end) };
+        return { from: start, to: end };
     }
-}
-
-export function defaultIntervalContentGenerator(interval) {
-    return <span className="interval-content">{interval.from + " - " + interval.to}</span>;
 }

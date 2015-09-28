@@ -5,46 +5,70 @@ require("!style!css!less!./style.less");
 var React = require("react");
 var _ = require("lodash");
 
-import { timeStrToMinutes, minutesToStr } from '../../src/functions/time-functions';
 import { TimeBar } from '../../src/component';
 
 require("./visualizer");
 
-function roundToHalfHours(timeStr) {
-    var minutes = timeStrToMinutes(timeStr);
-    var rounded =  30 * Math.round(minutes / 30);
-    return minutesToStr(rounded);
-}
+// CONFIG
 
-function subTimes(time1, time0) {
-    var minutes0 = timeStrToMinutes(time0);
-    var minutes1 = timeStrToMinutes(time1);
-    return minutes1 - minutes0;
-}
+var START_TIME = 8 * 60;
+var END_TIME = 18 * 60;
 
-function addMinutes(timeStr, deltaMinutes) {
-    var minutes = timeStrToMinutes(timeStr);
-    return minutesToStr(minutes + deltaMinutes);
-}
+// SOME FUNCTIONS TO CONVERT THE MODEL TO THE TIME-BAR FORMAT AND BACK
 
-var intervals = [
-    { id: 0, from: "10:00", to: "11:00", className:"highlighted" },
-    { id: 1, from: "12:00", to: "15:00" }
-];
+var timeStringToTimeBarTime = str => {
+    var parts = str.split(":");
+    var minutesFromMidnight = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+    return minutesFromMidnight - START_TIME;
+};
+
+var timeBarTimeToString = time => {
+    var minutesFromMidnight = time + START_TIME;
+    var hours = Math.floor(minutesFromMidnight / 60);
+    var remainderMinutes = minutesFromMidnight - hours * 60;
+    return hours + ":" + (remainderMinutes > 10 ? remainderMinutes : "0" + remainderMinutes);
+};
+
+var toTimeBarIntervals = ints => _.map(ints, interval => {
+    var { id, from, to, isSelected } = interval;
+    return {
+        id: id,
+        from: timeStringToTimeBarTime(from),
+        to: timeStringToTimeBarTime(to),
+        className: isSelected ? "highlighted" : ""
+    };
+});
+
+var intervalsToString = ints => JSON.stringify(_.map(ints, interval => {
+    var { from, to, ...rest } = interval;
+    return {
+        from: timeBarTimeToString(from),
+        to: timeBarTimeToString(to),
+        ...rest
+    };
+}), null, "\t")
+
+// TIME-BAR HANDLERS
+
+function onIntervalClick(intervalId, e) {
+    var interval = _.find(intervals, i => i.id === intervalId);
+
+    interval.isSelected = !interval.isSelected;
+
+    refresh();
+}
 
 function updateStart(intervalId, time) {
     var interval = _.find(intervals, i => i.id === intervalId);
     var intervalBefore = _.find(intervals, (__, index) => index === (intervals.length - 1) ? false : intervals[index+1].id === intervalId);
-    var maxTime = addMinutes(interval.to, -30);
-    var minTime = intervalBefore ? intervalBefore.to : "8:00";
+    var maxTime = interval.to - 30;
+    var minTime = intervalBefore ? intervalBefore.to : 0;
 
-    var rounded = roundToHalfHours(time);
-    var timeInMinutes = timeStrToMinutes(rounded);
-    var newTime = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
-                  timeInMinutes < timeStrToMinutes(minTime) ? minTime :
-                  rounded;
+    var newTime = time > maxTime ? maxTime :
+                  time < minTime ? minTime :
+                  time;
 
-    interval.from = newTime;
+    interval.from = Math.round(newTime);
 
     refresh();
 }
@@ -52,27 +76,15 @@ function updateStart(intervalId, time) {
 function updateEnd(intervalId, time) {
     var interval = _.find(intervals, i => i.id === intervalId);
     var nextInterval = _.find(intervals, (__, index) => index === 0 ? false : intervals[index-1].id === intervalId);
-    var minTime = addMinutes(interval.from, 30);;
-    var maxTime = nextInterval ? nextInterval.from : "18:00";
+    var minTime = interval.from + 30;
+    var maxTime = nextInterval ? nextInterval.from : (END_TIME - START_TIME);
 
-    var rounded = roundToHalfHours(time);
-    var timeInMinutes = timeStrToMinutes(rounded);
-    var newTime = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
-                  timeInMinutes < timeStrToMinutes(minTime) ? minTime :
-                  rounded;
+    var newTime = time > maxTime ? maxTime :
+                  time < minTime ? minTime :
+                  time;
 
-    interval.to = newTime;
+    interval.to = Math.round(newTime);
 
-    refresh();
-}
-
-function onIntervalClick(intervalId, e) {
-    var interval = _.find(intervals, i => i.id === intervalId);
-    if (interval.className) {
-        delete interval.className;
-    } else {
-        interval.className = "highlighted";
-    }
     refresh();
 }
 
@@ -80,72 +92,42 @@ function onIntervalDrag(intervalId, newIntervalStart) {
     var interval = _.find(intervals, i => i.id === intervalId);
     var intervalBefore = _.find(intervals, (__, index) => index === (intervals.length - 1) ? false : intervals[index+1].id === intervalId);
     var nextInterval = _.find(intervals, (__, index) => index === 0 ? false : intervals[index-1].id === intervalId);
-    var minTime = intervalBefore ? intervalBefore.to : "8:00";
-    var maxEndTime = nextInterval ? nextInterval.from : "18:00";
-    var intervalDuration = subTimes(interval.to, interval.from);
-    var maxTime = addMinutes(maxEndTime, -intervalDuration);
 
-    var rounded = roundToHalfHours(newIntervalStart);
-    var timeInMinutes = timeStrToMinutes(rounded);
-    var newIntervalStartBounded = timeInMinutes > timeStrToMinutes(maxTime) ? maxTime :
-                                  timeInMinutes < timeStrToMinutes(minTime) ? minTime :
-                                  rounded;
+    var minTime = intervalBefore ? intervalBefore.to : 0;
+    var maxEndTime = nextInterval ? nextInterval.from : (END_TIME - START_TIME);
+    var intervalDuration = interval.to - interval.from;
+    var maxTime = maxEndTime - intervalDuration;
 
-    var delta = subTimes(newIntervalStartBounded, interval.from);
-    interval.to = addMinutes(interval.to, delta);
-    interval.from = newIntervalStartBounded;
+    var newIntervalStartBounded = newIntervalStart > maxTime ? maxTime :
+                                  newIntervalStart < minTime ? minTime :
+                                  newIntervalStart;
+
+    var newTime = Math.round(newIntervalStartBounded);
+    var delta = newTime - interval.from;
+    interval.from = newTime;
+    interval.to = interval.to + delta;
+
     refresh();
-}
-
-var toggleFlag = false;
-function modifyLength() {
-    intervals[0].to = addMinutes(intervals[0].to, toggleFlag ? 30 : -30);
-    toggleFlag = !toggleFlag;
-    refresh();
-}
-
-var int1 = null;
-function toggleLenghChanger() {
-    if (int1) {
-        clearInterval(int1);
-        int1 = 0;
-    } else {
-        int1 = setInterval(modifyLength, 1000);
-    }
-}
-window.document.getElementById("run-size").addEventListener("click",  toggleLenghChanger);
-
-window.document.getElementById("run-remove").addEventListener("click", function() {
-    setTimeout(function() {
-        intervals.splice(0, 1);
-        refresh();
-    }, 2000);
-});
-
-function removeInterval(id) {
-    for (var i = 0, interval; interval = intervals[i]; i++) {
-        if (interval.id === id) {
-            intervals.splice(i, 1);
-            break;
-        }
-    }
-    refresh();
-}
-
-function blockEvent(e) {
-    e.stopPropagation();
 }
 
 function intervalContentGen(interval) {
-    var fn = function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+
+    function blockEvent(e) { e.stopPropagation(); }
+
+    function fn(e) {
+        blockEvent(e);
         removeInterval(interval.id);
-    };
+    }
+
     var removeButton = (<a className="remove-button"
                            onClick={fn}
                            onMouseDown={blockEvent}>[x]</a>);
-    return <span className="interval-content">{interval.from + " - " + interval.to} {removeButton}</span>;
+
+    var from = timeBarTimeToString(interval.from),
+        to = timeBarTimeToString(interval.to),
+        label = from + " - " + to;
+
+    return <span className="interval-content">{label} {removeButton}</span>;
 }
 
 function genNewInterval(bounds) {
@@ -154,20 +136,37 @@ function genNewInterval(bounds) {
     var newInterval = { id: newId, from: bounds.from, to: bounds.to };
     var index = 0;
     for (var interval; interval = intervals[index]; index++) {
-        if (timeStrToMinutes(interval.from) > timeStrToMinutes(newInterval.from))
+        if (interval.from > newInterval.from)
             break;
     }
     intervals.splice(index, 0, newInterval);
     refresh();
 }
 
+// ACTUAL USAGE
+
+var serverData = [
+    {
+        id: 0,
+        from: "10:00",
+        to: "11:00",
+        isSelected: true
+    },
+    {
+        id: 1,
+        from: "12:00",
+        to: "15:00"
+    }
+];
+
+var intervals = toTimeBarIntervals(serverData);
+
 function refresh() {
 
-    window.document.getElementById("intervals").innerText = JSON.stringify(intervals, null, "\t");
+    window.document.getElementById("intervals").innerText = intervalsToString(intervals);
 
     React.render(
-        <TimeBar min={"8:00"}
-                 max={"18:00"}
+        <TimeBar max={(18-8)*60}
                  width={800}
                  intervals={intervals}
                  onStartChange={updateStart}

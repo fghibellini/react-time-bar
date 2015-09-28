@@ -1,7 +1,7 @@
 
 import { TimeBarState, DraggingAction, PreviewAction, TERMINATION_MSG } from './state';
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './functions/global-cursor';
-import { getRemovedIds, modifyTimeByPixels } from './functions/utils';
+import { getRemovedIds } from './functions/utils';
 
 function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
     var newState = state.set("action", new DraggingAction({
@@ -16,7 +16,7 @@ function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
 
 function drag(state, newCoords) {
     var {
-        min, max, width,
+        max, width,
         onStartChange, onEndChange, onIntervalDrag,
         action: {
             intervalId, side,
@@ -25,7 +25,8 @@ function drag(state, newCoords) {
         }
     } = state;
 
-    var newTime = modifyTimeByPixels(min, max, width, timeBeforeDrag, newCoords.clientX - initialCoords.x);
+    var deltaPx = newCoords.clientX - initialCoords.x;
+    var newTime = timeBeforeDrag + max * deltaPx / width;
 
     if (side === "left") {
         onStartChange(intervalId, newTime);
@@ -52,7 +53,7 @@ function drag(state, newCoords) {
 }
 
 function dragEnd(state, capturedMouseEvents) {
-    var { action: { intervalId, movedSinceMouseDown }, onIntervalClick  } = state;
+    var { action: { intervalId, movedSinceMouseDown }, onIntervalClick } = state;
 
     if (movedSinceMouseDown) {
         unsetCursorToWholeDocument(window.document);

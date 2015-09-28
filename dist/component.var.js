@@ -62,22 +62,20 @@ var ReactTimeBar =
 
 	exports.getTimeBarComponent = getTimeBarComponent;
 
-	var _functionsTimeFunctions = __webpack_require__(2);
+	var _functionsUtils = __webpack_require__(2);
 
-	var _functionsUtils = __webpack_require__(3);
+	var _state2 = __webpack_require__(4);
 
-	var _state2 = __webpack_require__(5);
+	var _deltaFunction = __webpack_require__(6);
 
-	var _deltaFunction = __webpack_require__(7);
+	var _mouseEventCapturing = __webpack_require__(8);
 
-	var _mouseEventCapturing = __webpack_require__(9);
+	var _functionsCommon = __webpack_require__(10);
 
-	var _functionsCommon = __webpack_require__(11);
+	__webpack_require__(12);
 
-	__webpack_require__(13);
-
-	var rx = __webpack_require__(4);
-	var React = __webpack_require__(12);
+	var rx = __webpack_require__(3);
+	var React = __webpack_require__(11);
 
 	var noop = rx.helpers.noop;
 
@@ -104,8 +102,7 @@ var ReactTimeBar =
 	    return React.createClass({
 	        displayName: "TimeBar",
 	        propTypes: {
-	            min: React.PropTypes.string,
-	            max: React.PropTypes.string,
+	            max: React.PropTypes.number,
 	            width: React.PropTypes.number,
 	            onStartChange: React.PropTypes.func,
 	            onEndChange: React.PropTypes.func,
@@ -113,8 +110,8 @@ var ReactTimeBar =
 	            onIntervalDrag: React.PropTypes.func,
 	            intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
 	                id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
-	                from: React.PropTypes.string,
-	                to: React.PropTypes.string,
+	                from: React.PropTypes.number,
+	                to: React.PropTypes.number,
 	                className: React.PropTypes.string
 	            })),
 	            intervalContentGenerator: React.PropTypes.func,
@@ -123,15 +120,16 @@ var ReactTimeBar =
 	        },
 	        getDefaultProps: function getDefaultProps() {
 	            return {
-	                min: "8:00",
-	                max: "18:00",
+	                max: 1440,
 	                width: 800,
 	                onStartChange: noop,
 	                onEndChange: noop,
 	                onIntervalClick: noop,
 	                onIntervalDrag: noop,
 	                intervals: [],
-	                intervalContentGenerator: _functionsCommon.defaultIntervalContentGenerator,
+	                intervalContentGenerator: function intervalContentGenerator() {
+	                    return null;
+	                },
 	                previewBoundsGenerator: _functionsCommon.defaultPreviewBoundsGenerator,
 	                onIntervalNew: noop
 	            };
@@ -198,7 +196,6 @@ var ReactTimeBar =
 
 	            var _state = this.state;
 	            var action = _state.action;
-	            var min = _state.min;
 	            var max = _state.max;
 	            var width = _state.width;
 	            var intervals = _state.intervals;
@@ -210,8 +207,8 @@ var ReactTimeBar =
 	            // THE DISPLAYED INTERVALS
 
 	            var mappedIntervals = intervals.map(function (interval, intIndex) {
-	                var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.from);
-	                var end = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, interval.to);
+	                var start = width * interval.from / max;
+	                var end = width * interval.to / max;
 
 	                var mouseDownHandlerGen = function mouseDownHandlerGen(side, timeBeforeDrag) {
 	                    return function (e) {
@@ -249,8 +246,8 @@ var ReactTimeBar =
 
 	            var intervalPreview = !(action && action instanceof _state2.PreviewAction) ? null : (function () {
 	                var x = action.x;
-	                var startTime = (0, _functionsTimeFunctions.percentilToTime)(min, max, x / width);
-	                var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
+	                var startTime = max * x / width;
+	                var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
 
 	                var previewClick = function previewClick(e) {
 	                    e.stopPropagation();
@@ -260,8 +257,8 @@ var ReactTimeBar =
 	                if (bounds === null) {
 	                    return null;
 	                } else {
-	                    var start = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, bounds.from);
-	                    var end = width * (0, _functionsTimeFunctions.timeToPercentil)(min, max, bounds.to);
+	                    var start = width * bounds.from / max;
+	                    var end = width * bounds.to / max;
 	                    return React.createElement(
 	                        "div",
 	                        { className: "new-interval",
@@ -317,77 +314,6 @@ var ReactTimeBar =
 
 /***/ },
 /* 2 */
-/***/ function(module, exports) {
-
-	"use strict";
-
-	Object.defineProperty(exports, "__esModule", {
-	    value: true
-	});
-	exports.timeStrToMinutes = timeStrToMinutes;
-	exports.minutesToStr = minutesToStr;
-	exports.timeToPercentil = timeToPercentil;
-	exports.percentilToTime = percentilToTime;
-	exports.addMinutes = addMinutes;
-
-	function parseDec(s) {
-	    return parseInt(s, 10);
-	}
-
-	/**
-	 * Converts a string of format "HH:MM" to the number
-	 * of minutes since 00:00.
-	 */
-
-	function timeStrToMinutes(str) {
-	    return str.split(":").map(parseDec).reduce(function (h, m) {
-	        return h * 60 + m;
-	    });
-	}
-
-	/**
-	 * Converts a number representing the number of minutes from midnight
-	 * to a string of format "HH:MM"
-	 */
-
-	function minutesToStr(minutes) {
-	    var remainderMinutes = minutes % 60;
-	    return Math.floor(minutes / 60) + ":" + (remainderMinutes > 10 ? remainderMinutes : "0" + remainderMinutes);
-	}
-
-	/**
-	 * Given the min and max of a time interval and a time t
-	 * it returns at which percentace of that time interval t lies.
-	 *
-	 * min, max and t are strings of format "HH:MM"
-	 *
-	 * returns a number between 0 and 1
-	 */
-
-	function timeToPercentil(min, max, t) {
-	    var minMinutes = timeStrToMinutes(min);
-	    var maxMinutes = timeStrToMinutes(max);
-	    var durationMinutes = maxMinutes - minMinutes;
-	    var tMinutes = timeStrToMinutes(t);
-	    var tFromStart = tMinutes - minMinutes;
-	    return tFromStart / durationMinutes;
-	}
-
-	function percentilToTime(min, max, percentil) {
-	    var minMinutes = timeStrToMinutes(min);
-	    var maxMinutes = timeStrToMinutes(max);
-	    var durationMinutes = maxMinutes - minMinutes;
-	    var minutes = Math.floor(percentil * durationMinutes);
-	    return minutesToStr(minMinutes + minutes);
-	}
-
-	function addMinutes(time, delta) {
-	    var minutes = timeStrToMinutes(time);
-	    return minutesToStr(minutes + delta);
-	}
-
-/***/ },
-/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -397,11 +323,8 @@ var ReactTimeBar =
 	});
 	exports.mergeInputs = mergeInputs;
 	exports.getRemovedIds = getRemovedIds;
-	exports.modifyTimeByPixels = modifyTimeByPixels;
 
-	var _timeFunctions = __webpack_require__(2);
-
-	var rx = __webpack_require__(4),
+	var rx = __webpack_require__(3),
 	    mergeObservables = rx.Observable.merge;
 
 	var noop = rx.helpers.noop;
@@ -426,29 +349,14 @@ var ReactTimeBar =
 	    return removed;
 	}
 
-	function computeDeltaInMinutes(min, max, width, deltaPx) {
-	    var minMinutes = (0, _timeFunctions.timeStrToMinutes)(min);
-	    var maxMinutes = (0, _timeFunctions.timeStrToMinutes)(max);
-	    var intervalDuration = maxMinutes - minMinutes;
-	    var pixelDuration = intervalDuration / width;
-	    return Math.round(deltaPx * pixelDuration);
-	}
-
-	function modifyTimeByPixels(min, max, width, t0, deltaPx) {
-	    var deltaMinutes = computeDeltaInMinutes(min, max, width, deltaPx);
-	    var t0InMinutes = (0, _timeFunctions.timeStrToMinutes)(t0);
-
-	    return (0, _timeFunctions.minutesToStr)(t0InMinutes + deltaMinutes);
-	}
-
 /***/ },
-/* 4 */
+/* 3 */
 /***/ function(module, exports) {
 
 	module.exports = Rx;
 
 /***/ },
-/* 5 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -464,17 +372,17 @@ var ReactTimeBar =
 
 	function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
 
-	var _functionsUtils = __webpack_require__(3);
+	var _functionsUtils = __webpack_require__(2);
 
-	var Immutable = __webpack_require__(6);
+	var Immutable = __webpack_require__(5);
 
 	var TERMINATION_MSG = {};
 
 	exports.TERMINATION_MSG = TERMINATION_MSG;
 	var Interval = new Immutable.Record({
 	    id: null,
-	    from: "12:00",
-	    to: "13:00",
+	    from: null,
+	    to: null,
 	    className: ""
 	});
 
@@ -497,7 +405,6 @@ var ReactTimeBar =
 	}
 
 	var Props = new Immutable.Record({
-	    min: null,
 	    max: null,
 	    width: null,
 	    onStartChange: null,
@@ -525,8 +432,7 @@ var ReactTimeBar =
 	var TimeBarState = new Immutable.Record({
 	    action: null,
 	    // the following are digested props
-	    min: "8:00",
-	    max: "18:00",
+	    max: 1440,
 	    width: 400,
 	    onStartChange: _functionsUtils.noop,
 	    onEndChange: _functionsUtils.noop,
@@ -554,13 +460,13 @@ var ReactTimeBar =
 	exports.DraggingAction = DraggingAction;
 
 /***/ },
-/* 6 */
+/* 5 */
 /***/ function(module, exports) {
 
 	module.exports = Immutable;
 
 /***/ },
-/* 7 */
+/* 6 */
 /***/ function(module, exports, __webpack_require__) {
 
 	'use strict';
@@ -570,11 +476,11 @@ var ReactTimeBar =
 	});
 	exports.deltaFunction = deltaFunction;
 
-	var _state = __webpack_require__(5);
+	var _state = __webpack_require__(4);
 
-	var _functionsGlobalCursor = __webpack_require__(8);
+	var _functionsGlobalCursor = __webpack_require__(7);
 
-	var _functionsUtils = __webpack_require__(3);
+	var _functionsUtils = __webpack_require__(2);
 
 	function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
 	    var newState = state.set("action", new _state.DraggingAction({
@@ -588,7 +494,6 @@ var ReactTimeBar =
 	}
 
 	function drag(state, newCoords) {
-	    var min = state.min;
 	    var max = state.max;
 	    var width = state.width;
 	    var onStartChange = state.onStartChange;
@@ -601,7 +506,8 @@ var ReactTimeBar =
 	    var initialCoords = _state$action.initialCoords;
 	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
 
-	    var newTime = (0, _functionsUtils.modifyTimeByPixels)(min, max, width, timeBeforeDrag, newCoords.clientX - initialCoords.x);
+	    var deltaPx = newCoords.clientX - initialCoords.x;
+	    var newTime = timeBeforeDrag + max * deltaPx / width;
 
 	    if (side === "left") {
 	        onStartChange(intervalId, newTime);
@@ -702,7 +608,7 @@ var ReactTimeBar =
 	}
 
 /***/ },
-/* 8 */
+/* 7 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -728,7 +634,7 @@ var ReactTimeBar =
 	}
 
 /***/ },
-/* 9 */
+/* 8 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -738,9 +644,9 @@ var ReactTimeBar =
 	});
 	exports.captureMouseEventsOnDomNode = captureMouseEventsOnDomNode;
 
-	var rx = __webpack_require__(4);
+	var rx = __webpack_require__(3);
 
-	__webpack_require__(10);
+	__webpack_require__(9);
 
 	/**
 	 * Returns an observable that captures and stops the propagation of all the mouseups and mousemoves on the passed domNode.
@@ -756,13 +662,13 @@ var ReactTimeBar =
 	}
 
 /***/ },
-/* 10 */
+/* 9 */
 /***/ function(module, exports) {
 
 	module.exports = Rx.DOM;
 
 /***/ },
-/* 11 */
+/* 10 */
 /***/ function(module, exports, __webpack_require__) {
 
 	"use strict";
@@ -771,30 +677,23 @@ var ReactTimeBar =
 	    value: true
 	});
 	exports.defaultPreviewBoundsGenerator = defaultPreviewBoundsGenerator;
-	exports.defaultIntervalContentGenerator = defaultIntervalContentGenerator;
 
-	var _timeFunctions = __webpack_require__(2);
+	var React = __webpack_require__(11);
 
-	var React = __webpack_require__(12);
-
-	var intervalPreviewWidth = 30;
-
-	function defaultPreviewBoundsGenerator(startTime, min, max, intervals) {
-	    startTime = (0, _timeFunctions.timeStrToMinutes)(startTime);
+	function defaultPreviewBoundsGenerator(startTime, max, intervals) {
+	    var intervalPreviewWidth = 60;
 
 	    var prevInterval, nextInterval;
 	    for (var i = 0, interval; interval = intervals[i]; i++) {
-	        var iFrom = (0, _timeFunctions.timeStrToMinutes)(interval.from);
-	        var iTo = (0, _timeFunctions.timeStrToMinutes)(interval.to);
-	        if (iTo <= startTime) prevInterval = interval;
-	        if (iFrom > startTime) {
+	        if (interval.to <= startTime) prevInterval = interval;
+	        if (interval.from > startTime) {
 	            nextInterval = interval;
 	            break;
 	        }
 	    }
 
-	    var minStartTime = prevInterval ? (0, _timeFunctions.timeStrToMinutes)(prevInterval.to) : (0, _timeFunctions.timeStrToMinutes)(min);
-	    var maxEndTime = nextInterval ? (0, _timeFunctions.timeStrToMinutes)(nextInterval.from) : (0, _timeFunctions.timeStrToMinutes)(max);
+	    var minStartTime = prevInterval ? prevInterval.to : 0;
+	    var maxEndTime = nextInterval ? nextInterval.from : max;
 
 	    if (intervalPreviewWidth > maxEndTime - minStartTime) {
 	        return null;
@@ -809,35 +708,27 @@ var ReactTimeBar =
 	            end = endTimeUnbounded > maxEndTime ? maxEndTime : endTimeUnbounded;
 	            start = end - intervalPreviewWidth;
 	        }
-	        return { from: (0, _timeFunctions.minutesToStr)(start), to: (0, _timeFunctions.minutesToStr)(end) };
+	        return { from: start, to: end };
 	    }
 	}
 
-	function defaultIntervalContentGenerator(interval) {
-	    return React.createElement(
-	        "span",
-	        { className: "interval-content" },
-	        interval.from + " - " + interval.to
-	    );
-	}
-
 /***/ },
-/* 12 */
+/* 11 */
 /***/ function(module, exports) {
 
 	module.exports = React;
 
 /***/ },
-/* 13 */
+/* 12 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// style-loader: Adds some css to the DOM by adding a <style> tag
 
 	// load the styles
-	var content = __webpack_require__(14);
+	var content = __webpack_require__(13);
 	if(typeof content === 'string') content = [[module.id, content, '']];
 	// add the styles to the DOM
-	var update = __webpack_require__(16)(content, {});
+	var update = __webpack_require__(15)(content, {});
 	if(content.locals) module.exports = content.locals;
 	// Hot Module Replacement
 	if(false) {
@@ -854,10 +745,10 @@ var ReactTimeBar =
 	}
 
 /***/ },
-/* 14 */
+/* 13 */
 /***/ function(module, exports, __webpack_require__) {
 
-	exports = module.exports = __webpack_require__(15)();
+	exports = module.exports = __webpack_require__(14)();
 	// imports
 
 
@@ -868,7 +759,7 @@ var ReactTimeBar =
 
 
 /***/ },
-/* 15 */
+/* 14 */
 /***/ function(module, exports) {
 
 	/*
@@ -924,7 +815,7 @@ var ReactTimeBar =
 
 
 /***/ },
-/* 16 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*

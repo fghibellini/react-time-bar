@@ -4,12 +4,11 @@ require("!style!css!less!./styles.less");
 var rx = require("rx");
 var React = require("react");
 
-import { timeToPercentil, percentilToTime, addMinutes, minutesToStr, timeStrToMinutes } from './functions/time-functions';
 import { mergeInputs } from './functions/utils';
 import { TimeBarState, PreviewAction, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
 import { deltaFunction } from './delta-function';
 import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
-import { defaultPreviewBoundsGenerator, defaultIntervalContentGenerator } from './functions/common';
+import { defaultPreviewBoundsGenerator } from './functions/common';
 
 var noop = rx.helpers.noop;
 
@@ -36,8 +35,7 @@ export function getTimeBarComponent(environmentArgs) {
     return React.createClass({
         displayName: "TimeBar",
         propTypes: {
-            min: React.PropTypes.string,
-            max: React.PropTypes.string,
+            max: React.PropTypes.number,
             width: React.PropTypes.number,
             onStartChange: React.PropTypes.func,
             onEndChange: React.PropTypes.func,
@@ -48,8 +46,8 @@ export function getTimeBarComponent(environmentArgs) {
                     React.PropTypes.number,
                     React.PropTypes.string
                 ]),
-                from: React.PropTypes.string,
-                to: React.PropTypes.string,
+                from: React.PropTypes.number,
+                to: React.PropTypes.number,
                 className: React.PropTypes.string
             })),
             intervalContentGenerator: React.PropTypes.func,
@@ -58,15 +56,14 @@ export function getTimeBarComponent(environmentArgs) {
         },
         getDefaultProps: function() {
             return {
-                min: "8:00",
-                max: "18:00",
+                max: 1440,
                 width: 800,
                 onStartChange: noop,
                 onEndChange: noop,
                 onIntervalClick: noop,
                 onIntervalDrag: noop,
                 intervals: [],
-                intervalContentGenerator: defaultIntervalContentGenerator,
+                intervalContentGenerator: () => null,
                 previewBoundsGenerator: defaultPreviewBoundsGenerator,
                 onIntervalNew: noop
             };
@@ -126,7 +123,7 @@ export function getTimeBarComponent(environmentArgs) {
             var {
                 state: {
                     action,
-                    min, max, width, intervals,
+                    max, width, intervals,
                     intervalContentGenerator, previewBoundsGenerator,
                     onIntervalNew
                 },
@@ -136,8 +133,8 @@ export function getTimeBarComponent(environmentArgs) {
             // THE DISPLAYED INTERVALS
 
             var mappedIntervals = intervals.map((interval, intIndex) => {
-                var start = width * timeToPercentil(min, max, interval.from);
-                var end = width * timeToPercentil(min, max, interval.to);
+                var start = width * interval.from / max;
+                var end = width * interval.to / max;
 
                 var mouseDownHandlerGen = (side, timeBeforeDrag) => e => {
                     inputObserver.onNext({
@@ -171,8 +168,8 @@ export function getTimeBarComponent(environmentArgs) {
 
             var intervalPreview = !(action && action instanceof PreviewAction) ? null : (() => {
                 var x = action.x;
-                var startTime = percentilToTime(min, max, x / width);
-                var bounds = previewBoundsGenerator(startTime, min, max, intervals.toJS());
+                var startTime = max * x / width;
+                var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
 
                 var previewClick = e => {
                     e.stopPropagation();
@@ -182,8 +179,8 @@ export function getTimeBarComponent(environmentArgs) {
                 if (bounds === null) {
                     return null;
                 } else {
-                    var start = width * timeToPercentil(min, max, bounds.from);
-                    var end = width * timeToPercentil(min, max, bounds.to);
+                    var start = width * bounds.from / max;
+                    var end = width * bounds.to / max;
                     return (<div className="new-interval"
                                  style={{ left: start, width: end - start }}
                                  onClick={previewClick}>+</div>);
