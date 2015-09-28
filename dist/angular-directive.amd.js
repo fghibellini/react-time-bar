@@ -186,6 +186,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	            onEndChange: React.PropTypes.func,
 	            onIntervalClick: React.PropTypes.func,
 	            onIntervalDrag: React.PropTypes.func,
+	            onDragEnd: React.PropTypes.func,
 	            intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
 	                id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
 	                from: React.PropTypes.number,
@@ -204,6 +205,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	                onEndChange: noop,
 	                onIntervalClick: noop,
 	                onIntervalDrag: noop,
+	                onDragEnd: noop,
 	                intervals: [],
 	                intervalContentGenerator: function intervalContentGenerator() {
 	                    return null;
@@ -489,6 +491,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	    onEndChange: null,
 	    onIntervalClick: null,
 	    onIntervalDrag: null,
+	    onDragEnd: null,
 	    intervals: new Immutable.List([]),
 	    intervalContentGenerator: null,
 	    previewBoundsGenerator: null,
@@ -516,6 +519,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	    onEndChange: _functionsUtils.noop,
 	    onIntervalClick: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
+	    onDragEnd: _functionsUtils.noop,
 	    intervals: null,
 	    intervalContentGenerator: _functionsUtils.noop,
 	    previewBoundsGenerator: _functionsUtils.noop,
@@ -629,6 +633,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	function deltaFunction(state, input, stream, environment, terminate) {
 	    var action = state.action;
 	    var onIntervalClick = state.onIntervalClick;
+	    var onDragEnd = state.onDragEnd;
 	    var capturedMouseEvents = environment.capturedMouseEvents;
 
 	    var newState = state;
@@ -663,6 +668,8 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
+	            } else {
+	                onDragEnd(intervalId);
 	            }
 	            newState = dragEnd(state, capturedMouseEvents);
 	        }

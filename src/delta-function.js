@@ -65,7 +65,7 @@ function dragEnd(state, capturedMouseEvents) {
 }
 
 export function deltaFunction(state, input, stream, environment, terminate) {
-    var { action, onIntervalClick } = state;
+    var { action, onIntervalClick, onDragEnd } = state;
     var { capturedMouseEvents } = environment;
 
     var newState = state;
@@ -94,6 +94,8 @@ export function deltaFunction(state, input, stream, environment, terminate) {
             var { intervalId, movedSinceMouseDown } = action;
             if (!movedSinceMouseDown) {
                 onIntervalClick(intervalId, null);
+            } else {
+                onDragEnd(intervalId);
             }
             newState = dragEnd(state, capturedMouseEvents);
         }

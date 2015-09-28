@@ -41558,6 +41558,7 @@
 	            onEndChange: React.PropTypes.func,
 	            onIntervalClick: React.PropTypes.func,
 	            onIntervalDrag: React.PropTypes.func,
+	            onDragEnd: React.PropTypes.func,
 	            intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
 	                id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
 	                from: React.PropTypes.number,
@@ -41576,6 +41577,7 @@
 	                onEndChange: noop,
 	                onIntervalClick: noop,
 	                onIntervalDrag: noop,
+	                onDragEnd: noop,
 	                intervals: [],
 	                intervalContentGenerator: function intervalContentGenerator() {
 	                    return null;
@@ -52359,6 +52361,7 @@
 	    onEndChange: null,
 	    onIntervalClick: null,
 	    onIntervalDrag: null,
+	    onDragEnd: null,
 	    intervals: new Immutable.List([]),
 	    intervalContentGenerator: null,
 	    previewBoundsGenerator: null,
@@ -52386,6 +52389,7 @@
 	    onEndChange: _functionsUtils.noop,
 	    onIntervalClick: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
+	    onDragEnd: _functionsUtils.noop,
 	    intervals: null,
 	    intervalContentGenerator: _functionsUtils.noop,
 	    previewBoundsGenerator: _functionsUtils.noop,
@@ -57425,6 +57429,7 @@
 	function deltaFunction(state, input, stream, environment, terminate) {
 	    var action = state.action;
 	    var onIntervalClick = state.onIntervalClick;
+	    var onDragEnd = state.onDragEnd;
 	    var capturedMouseEvents = environment.capturedMouseEvents;
 
 	    var newState = state;
@@ -57459,6 +57464,8 @@
 
 	            if (!movedSinceMouseDown) {
 	                onIntervalClick(intervalId, null);
+	            } else {
+	                onDragEnd(intervalId);
 	            }
 	            newState = dragEnd(state, capturedMouseEvents);
 	        }

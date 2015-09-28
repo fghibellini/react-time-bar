@@ -41,6 +41,7 @@ export function getTimeBarComponent(environmentArgs) {
             onEndChange: React.PropTypes.func,
             onIntervalClick: React.PropTypes.func,
             onIntervalDrag: React.PropTypes.func,
+            onDragEnd: React.PropTypes.func,
             intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
                 id: React.PropTypes.oneOfType([
                     React.PropTypes.number,
@@ -62,6 +63,7 @@ export function getTimeBarComponent(environmentArgs) {
                 onEndChange: noop,
                 onIntervalClick: noop,
                 onIntervalDrag: noop,
+                onDragEnd: noop,
                 intervals: [],
                 intervalContentGenerator: () => null,
                 previewBoundsGenerator: defaultPreviewBoundsGenerator,
