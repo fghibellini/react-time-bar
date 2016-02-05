@@ -36,6 +36,9 @@ export var Props = new Immutable.Record({
     onIntervalDrag: null,
     onDragEnd: null,
     onLongPress: null,
+    longPressInterval: 300,
+    mouseMoveRadius: 10,
+    touchMoveRadius: 10,
     intervals: new Immutable.List([]),
     intervalContentGenerator: null,
     previewBoundsGenerator: null,
@@ -63,6 +66,9 @@ export var TimeBarState = new Immutable.Record({
     onIntervalDrag: noop,
     onDragEnd: noop,
     onLongPress: noop,
+    longPressInterval: 300,
+    mouseMoveRadius: 2,
+    touchMoveRadius: 2,
     intervals: null,
     intervalContentGenerator: noop,
     previewBoundsGenerator: noop,
@@ -85,6 +91,8 @@ export var TouchDraggingAction = new Immutable.Record({
     intervalId: null,                 // the id of the dragged interval
     side: "both",                     // one of: "left", "right", "both"
     touchId: null,
+    longPressTimeoutId: null,         // return value of setTimeout
+    t0: null,                         // date object with time of touchstart
     initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
     timeBeforeDrag: null,             // the value of the property modified by the drag before the drag started
     movedSinceTouchStart: false       // a drag starts when the use moves the mouse after a mousedown otherwise it's a click

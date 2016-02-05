@@ -110,6 +110,10 @@ function onIntervalDrag(intervalId, newIntervalStart) {
     refresh();
 }
 
+function onLongPress(intervalId) {
+    console.log(`longPressed on interval: ${intervalId}`);
+}
+
 function intervalContentGen(interval) {
     return null;
 }
@@ -158,6 +162,7 @@ function refresh() {
                  onIntervalClick={onIntervalClick}
                  onIntervalDrag={onIntervalDrag}
                  onIntervalNew={genNewInterval}
+                 onLongPress={onLongPress}
                  intervalContentGenerator={intervalContentGen}
                  direction={"vertical"} />,
         window.document.getElementById("container")
