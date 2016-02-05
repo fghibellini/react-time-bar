@@ -5,7 +5,7 @@ var rx = require("rx");
 var React = require("react");
 
 import { mergeInputs } from './functions/utils';
-import { TimeBarState, PreviewAction, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
+import { TimeBarState, PreviewAction, TouchDraggingAction, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
 import { deltaFunction } from './delta-function';
 import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
 import { defaultPreviewBoundsGenerator } from './functions/common';
@@ -53,7 +53,8 @@ export function getTimeBarComponent(environmentArgs) {
             })),
             intervalContentGenerator: React.PropTypes.func,
             previewBoundsGenerator: React.PropTypes.func,
-            onIntervalNew: React.PropTypes.func
+            onIntervalNew: React.PropTypes.func,
+            direction: React.PropTypes.string
         },
         getDefaultProps: function() {
             return {
@@ -67,7 +68,8 @@ export function getTimeBarComponent(environmentArgs) {
                 intervals: [],
                 intervalContentGenerator: () => null,
                 previewBoundsGenerator: defaultPreviewBoundsGenerator,
-                onIntervalNew: noop
+                onIntervalNew: noop,
+                direction: "horizontal"
             };
         },
         getAllInputs: function() {
@@ -76,10 +78,27 @@ export function getTimeBarComponent(environmentArgs) {
             return mergeInputs([inputSubject, capturedMouseEvents]).observeOn(rx.Scheduler.currentThread);
         },
         setupStateMachine: function(allInputs, deltaFunction) {
+            function formatState(state) {
+                if (state.action) {
+                    var action = state.action;
+                    if (action instanceof TouchDraggingAction) {
+                        return state.action.movedSinceTouchStart;
+                    } else {
+                        return "<action not touch-drag>";
+                    }
+                } else {
+                    return "<no action>";
+                }
+            }
             var SM_Subscription = allInputs.subscribe(update => {
                 try {
                     /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
-                    var { state, inputObserver } = this;
+                    var { my_state: state, inputObserver } = this;
+
+                    console.log("TRANSITION:");
+                    console.log("-----------");
+                    console.log("update: " + JSON.stringify(update));
+                    console.log("from: " + formatState(state));
 
                     if (this.__deltaRunnging) { console.error(Error(NESTED_DELTAS_ERROR)); }
                     this.__deltaRunnging = true;
@@ -87,7 +106,11 @@ export function getTimeBarComponent(environmentArgs) {
                     this.__deltaRunnging = false;
 
                     if (newState !== state) {
+                        this.my_state = newState;
                         this.replaceState(newState);
+                        console.log("to: " + formatState(newState));
+                    } else {
+                        console.log("[not replacing state]");
                     }
                 } catch (e) {
                     // Prevent unexpected errors to freeze the time bar.
@@ -104,7 +127,7 @@ export function getTimeBarComponent(environmentArgs) {
             var allInputs = this.getAllInputs();
             this.setupStateMachine(allInputs, deltaFunction);
 
-            return new TimeBarState({
+            return this.my_state = new TimeBarState({
                 action: null,
                 ...initialProps.toObject()
             });
@@ -125,7 +148,7 @@ export function getTimeBarComponent(environmentArgs) {
             var {
                 state: {
                     action,
-                    max, width, intervals,
+                    max, width, intervals, direction,
                     intervalContentGenerator, previewBoundsGenerator,
                     onIntervalNew
                 },
@@ -150,18 +173,68 @@ export function getTimeBarComponent(environmentArgs) {
                     e.stopPropagation();
                 };
 
+                var touchStartHandlerGen = (side, timeBeforeDrag) => e => {
+                    console.log("touch");
+                    var touch = e.changedTouches[0];
+                    inputObserver.onNext({
+                        type: "touchstart",
+                        intervalId: interval.id,
+                        side: side,
+                        touchId: touch.identifier,
+                        initialCoords: { x: touch.clientX, y: touch.clientY },
+                        timeBeforeDrag: timeBeforeDrag
+                    });
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+
+                var touchMove = e => {
+                    var touch = e.changedTouches[0];
+                    inputObserver.onNext({
+                        type: "touchmove",
+                        touchId: touch.identifier,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+
+                var touchEnd = e => {
+                    var touch = e.changedTouches[0];
+                    inputObserver.onNext({
+                        type: "touchend",
+                        touchId: touch.identifier,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY
+                    });
+                    e.preventDefault();
+                    e.stopPropagation();
+                };
+
                 var leftHandleDragStart = mouseDownHandlerGen("left", interval.from);
                 var rightHandleDragStart = mouseDownHandlerGen("right", interval.to);
                 var intervalDragStart = mouseDownHandlerGen("whole", interval.from);
 
+                var leftHandleTouchDragStart = touchStartHandlerGen("left", interval.from);
+                var rightHandleTouchDragStart = touchStartHandlerGen("right", interval.to);
+                var intervalTouchDragStart = touchStartHandlerGen("whole", interval.from);
+
+                var style = (direction === "horizontal") ? { left: start, width: end - start } : { top: start, height: end - start };
+
                 return (<div className={["interval", interval.className].join(" ")}
                              key={interval.id}
                              onMouseDown={intervalDragStart}
-                             style={{ left: start, width: end - start }}>
+                             onTouchStart={intervalTouchDragStart}
+                             onTouchEnd={touchEnd}
+                             onTouchMove={touchMove}
+                             style={style}>
                     <div className="interval-handle interval-handle-left"
-                         onMouseDown={leftHandleDragStart} />
+                         onMouseDown={leftHandleDragStart}
+                         onTouchStart={leftHandleDragStart} />
                     <div className="interval-handle interval-handle-right"
-                         onMouseDown={rightHandleDragStart} />
+                         onMouseDown={rightHandleDragStart}
+                         onTouchStart={rightHandleDragStart} />
                     {intervalContentGenerator(interval)}
                 </div>);
             });
@@ -169,8 +242,8 @@ export function getTimeBarComponent(environmentArgs) {
             // THE PREVIEW OF A NEW INERVAL
 
             var intervalPreview = !(action && action instanceof PreviewAction) ? null : (() => {
-                var x = action.x;
-                var startTime = max * x / width;
+                var offset = action.offset;
+                var startTime = max * offset / width;
                 var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
 
                 var previewClick = e => {
@@ -181,10 +254,12 @@ export function getTimeBarComponent(environmentArgs) {
                 if (bounds === null) {
                     return null;
                 } else {
+                    console.log(bounds);
                     var start = width * bounds.from / max;
                     var end = width * bounds.to / max;
+                    var style = (direction === "horizontal") ? { left: start, width: end - start } : { top: start, height: end - start };
                     return (<div className="new-interval"
-                                 style={{ left: start, width: end - start }}
+                                 style={style}
                                  onClick={previewClick}>+</div>);
                 }
             })();
@@ -195,11 +270,12 @@ export function getTimeBarComponent(environmentArgs) {
                 var barElement = React.findDOMNode(this);
                 if (e.target === barElement || e.target.className === "new-interval") {
                     var boundingRect = barElement.getBoundingClientRect();
-                    var x = e.pageX - boundingRect.left;
+                    var [page, bounding] = direction === 'horizontal' ? [e.pageX, boundingRect.left + window.scrollX] : [e.pageY, boundingRect.top + window.scrollY];
+                    var offset = page - bounding;
 
                     inputObserver.onNext({
                         type: "bar-mousemove",
-                        x: x
+                        offset: offset
                     });
                 } else {
                     inputObserver.onNext({
@@ -214,8 +290,8 @@ export function getTimeBarComponent(environmentArgs) {
                 });
             };
 
-            return (<div className="time-bar"
-                        style={{ width: width }}
+            return (<div className={["time-bar", direction].join(" ")}
+                        style={(direction === "horizontal") ? { width: width } : { height: width }}
                         onMouseMove={barMouseMove}
                         onMouseLeave={barMouseLeave}>
                 {intervalPreview}

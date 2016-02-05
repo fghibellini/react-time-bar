@@ -5,6 +5,7 @@ module.exports = applyCommonConfig({
     entry: {
         "tests": "./test/main.js",
         "demos/basic": "./demos/basic/main.js",
+        "demos/vertical": "./demos/vertical/main.js",
         "demos/extremes": "./demos/extremes/main.js",
         "demos/angular-directive": "./demos/angular-directive/main.js",
         "demos/commonjs": "./demos/commonjs/main.js"

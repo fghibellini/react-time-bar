@@ -1,0 +1,65 @@
+
+html, body {
+    box-sizing: border-box;
+    padding: 0;
+    margin: 0;
+}
+
+.highlighted {
+    background: red;
+}
+
+.remove-button {
+    color: red;
+    cursor: pointer;
+
+    &:hover {
+        font-weight: bold;
+    }
+}
+
+.interval {
+    overflow: hidden;
+}
+
+#mousemove-visualizer {
+    box-sizing: border-box;
+    padding: 10px;
+    margin: 3px 0 10px;
+    width: 100%;
+    background: #eee;
+
+    border: 2px dashed #ccc;
+
+    p {
+        white-space: pre-line;
+    }
+}
+
+h1 {
+    padding: 0;
+    margin: 5px 10px;
+}
+
+.time-bar {
+    width: 50px;
+}
+
+#container {
+    display: inline-block;
+}
+
+#left {
+    display: inline-block;
+    min-height: 100%;
+    float: left;
+    padding: 10px;
+}
+
+#right {
+    display: none;
+    float: left;
+    width: 500px;
+    /*background: purple;*/
+    padding: 10px;
+}

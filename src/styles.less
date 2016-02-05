@@ -1,10 +1,14 @@
 
+/* VARIABLES */
+
 @handle-width:8px;
 @bar-height:30px;
 @bar-color: #eeeeee;
 @border-color: #cccccc;
 @border-width: 2px;
 @movement-duration: 0.05s;
+
+/* MIXINS */
 
 .user-select(@select) {
     -webkit-user-select: @select;
@@ -14,15 +18,20 @@
     user-select: @select;
 }
 
+/* TIME-BAR */
+
 .time-bar {
     position: relative;
     background: @bar-color;
     display: inline-block;
     box-sizing: border-box;
     height: @bar-height;
+    width: @bar-height;
     cursor: normal;
     .user-select(none);
 }
+
+/* NEW INTERVAL */
 
 .new-interval {
     position: absolute;
@@ -31,13 +40,23 @@
     line-height: @bar-height;
     box-sizing: border-box;
     top: 0;
-    height: 100%;
-    width: 30px;
     border: @border-width solid @border-color;
     .user-select(none);
     cursor: pointer;
     font-weight: bold;
 }
+
+.horizontal .new-interval {
+    height: 100%;
+    width: 30px;
+}
+
+.vertical .new-interval {
+    height: 30px;
+    width: 100%;
+}
+
+/* INTERVAL */
 
 .interval {
     position: absolute;
@@ -47,6 +66,7 @@
     box-sizing: border-box;
     top: 0;
     height: 100%;
+    width: 100%;
     border: @border-width solid @border-color;
     .user-select(none);
  /* VERY LAGGY & CPU intensive
@@ -59,26 +79,61 @@
     .user-select(none);
 }
 
+/* HANDLES */
+
 .interval-handle {
     position: absolute;
     display: block;
     box-sizing: border-box;
-    top: 0;
-    height: auto;
-    bottom: 0;
-    width: @handle-width;
     margin: -@border-width;
     .user-select(none);
 }
 
-.interval-handle-left {
-    left: 0;
-    cursor: w-resize;
-    border-left: @border-width solid @border-color;
+.horizontal {
+    .interval-handle {
+        position: absolute;
+        display: block;
+        box-sizing: border-box;
+        top: 0;
+        height: auto;
+        bottom: 0;
+        width: @handle-width;
+        margin: -@border-width;
+        .user-select(none);
+    }
+
+    .interval-handle-left {
+        left: 0;
+        cursor: w-resize;
+        border-left: @border-width solid @border-color;
+    }
+
+    .interval-handle-right {
+        right: 0;
+        cursor: e-resize;
+        border-right: @border-width solid @border-color;
+    }
 }
 
-.interval-handle-right {
-    right: 0;
-    cursor: e-resize;
-    border-right: @border-width solid @border-color;
+.vertical {
+    .interval-handle {
+        left: 0;
+        width: auto;
+        right: 0;
+        height: @handle-width;
+        margin: -@border-width;
+        .user-select(none);
+    }
+
+    .interval-handle-left {
+        top: 0;
+        cursor: n-resize;
+        border-top: @border-width solid @border-color;
+    }
+
+    .interval-handle-right {
+        bottom: 0;
+        cursor: s-resize;
+        border-bottom: @border-width solid @border-color;
+    }
 }

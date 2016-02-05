@@ -4,7 +4,7 @@ require("!style!css!less!./style.less");
 var angular = require("angular");
 var _ = require("lodash");
 
-import { timeStrToMinutes, minutesToStr } from '../../src/functions/time-functions';
+import { timeStrToMinutes, minutesToStr } from '../../utils/time-functions';
 
 require('../../src/angular-directive');
 

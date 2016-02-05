@@ -1,5 +1,5 @@
 
-import { timeStrToMinutes, minutesToStr } from '../src/functions/time-functions';
+import { timeStrToMinutes, minutesToStr } from '../utils/time-functions';
 
 var _ = require("lodash"),
     range = _.range;

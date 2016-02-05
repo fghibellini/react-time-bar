@@ -35,10 +35,12 @@ export var Props = new Immutable.Record({
     onIntervalClick: null,
     onIntervalDrag: null,
     onDragEnd: null,
+    onLongPress: null,
     intervals: new Immutable.List([]),
     intervalContentGenerator: null,
     previewBoundsGenerator: null,
-    onIntervalNew: null
+    onIntervalNew: null,
+    direction: 'horizontal'
 });
 
 export function propsToImmutable(propsObject) {
@@ -48,16 +50,19 @@ export function propsToImmutable(propsObject) {
         ...otherProps
     });
 }
+
 export var TimeBarState = new Immutable.Record({
     action: null,
     // the following are digested props
     max: 1440,
     width: 400,
+    direction: 'horizontal',
     onStartChange: noop,
     onEndChange: noop,
     onIntervalClick: noop,
     onIntervalDrag: noop,
     onDragEnd: noop,
+    onLongPress: noop,
     intervals: null,
     intervalContentGenerator: noop,
     previewBoundsGenerator: noop,
@@ -65,10 +70,10 @@ export var TimeBarState = new Immutable.Record({
 });
 
 export var PreviewAction = new Immutable.Record({
-    x: null
+    offset: null
 });
 
-export var DraggingAction = new Immutable.Record({
+export var MouseDraggingAction = new Immutable.Record({
     intervalId: null,                 // the id of the dragged interval
     side: "both",                     // one of: "left", "right", "both"
     initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
@@ -76,3 +81,15 @@ export var DraggingAction = new Immutable.Record({
     movedSinceMouseDown: false        // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
 });
 
+export var TouchDraggingAction = new Immutable.Record({
+    intervalId: null,                 // the id of the dragged interval
+    side: "both",                     // one of: "left", "right", "both"
+    touchId: null,
+    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
+    timeBeforeDrag: null,             // the value of the property modified by the drag before the drag started
+    movedSinceTouchStart: false       // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+});
+
+export function isDraggingAction(action) {
+    return action instanceof MouseDraggingAction || action instanceof TouchDraggingAction;
+}
