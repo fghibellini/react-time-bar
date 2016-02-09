@@ -42,6 +42,7 @@ export var Props = new Immutable.Record({
     intervals: new Immutable.List([]),
     intervalContentGenerator: null,
     previewBoundsGenerator: null,
+    onDoubleTap: null,
     onIntervalNew: null,
     direction: 'horizontal'
 });
@@ -72,6 +73,7 @@ export var TimeBarState = new Immutable.Record({
     intervals: null,
     intervalContentGenerator: noop,
     previewBoundsGenerator: noop,
+    onDoubleTap: noop,
     onIntervalNew: noop
 });
 
@@ -101,3 +103,18 @@ export var TouchDraggingAction = new Immutable.Record({
 export function isDraggingAction(action) {
     return action instanceof MouseDraggingAction || action instanceof TouchDraggingAction;
 }
+
+// BAR TOUCH EVENT HANDLING
+
+export var FirstPressed = new Immutable.Record({
+    longPressTimeoutId: null
+});
+
+export var FirstReleased = new Immutable.Record({
+    singleTapTimeoutId: null
+});
+
+export var SecondPressed = new Immutable.Record({
+    longPressTimeoutId: null
+});
+

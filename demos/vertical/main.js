@@ -110,7 +110,15 @@ function onIntervalDrag(intervalId, newIntervalStart) {
     refresh();
 }
 
-function onLongPress(intervalId) {
+function onLongPress() {
+    console.log(`longPressed on whole timebar`);
+}
+
+function onDoubleTap() {
+    console.log(`double tap!`);
+}
+
+function onIntervalLongPress(intervalId) {
     console.log(`longPressed on interval: ${intervalId}`);
 }
 
@@ -163,6 +171,8 @@ function refresh() {
                  onIntervalDrag={onIntervalDrag}
                  onIntervalNew={genNewInterval}
                  onLongPress={onLongPress}
+                 onDoubleTap={onDoubleTap}
+                 onIntervalLongPress={onIntervalLongPress}
                  intervalContentGenerator={intervalContentGen}
                  direction={"vertical"} />,
         window.document.getElementById("container")

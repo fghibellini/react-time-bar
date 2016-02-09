@@ -1,0 +1,27 @@
+
+digraph {
+
+    label="Touch Events"
+    labelloc=top
+    labeljust=center
+
+    node [shape=circle]
+    
+    Initial [label="Default/Initial/Any", shape="doublecircle"]
+
+    Initial -> FirstPressed [label="TouchStart"]
+
+    FirstPressed -> Initial [label="800ms [LongPress]"]
+
+    FirstPressed -> FirstReleased [label="TouchEnd"]
+
+    FirstReleased -> Initial [label="300ms [SingleTap]"]
+
+    FirstReleased -> SecondPressed [label="TouchStart"]
+
+    SecondPressed -> Initial [label="800ms [DoubleLongPress]"]
+
+    SecondPressed -> Initial [label="TouchEnd [DoubleTap]"]
+
+
+}

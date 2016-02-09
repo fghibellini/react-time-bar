@@ -6,9 +6,10 @@ var React = require("react");
 
 import { mergeInputs, noop } from './functions/utils';
 import { TimeBarState, PreviewAction, TouchDraggingAction, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
-import { deltaFunction } from './delta-function';
+import { deltaFunction, stateExitClearTimeoutHooks } from './delta-function';
 import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
 import { defaultPreviewBoundsGenerator } from './functions/common';
+import { BAR_TOUCH_START, BAR_TOUCH_END } from './events';
 
 var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
 var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
@@ -55,6 +56,7 @@ export function getTimeBarComponent(environmentArgs) {
             })),
             intervalContentGenerator: React.PropTypes.func,
             previewBoundsGenerator: React.PropTypes.func,
+            onDoubleTap: React.PropTypes.func,
             onIntervalNew: React.PropTypes.func,
             direction: React.PropTypes.string
         },
@@ -74,6 +76,7 @@ export function getTimeBarComponent(environmentArgs) {
                 intervals: [],
                 intervalContentGenerator: () => null,
                 previewBoundsGenerator: defaultPreviewBoundsGenerator,
+                onDoubleTap: noop,
                 onIntervalNew: noop,
                 direction: "horizontal"
             };
@@ -114,6 +117,12 @@ export function getTimeBarComponent(environmentArgs) {
                     this.__deltaRunnging = false;
 
                     if (newState !== state) {
+                        if (newState.action !== state.action) {
+                            var exitHook = state.action && state.action.constructor && stateExitClearTimeoutHooks.get(state.action.constructor);
+                            if (exitHook) {
+                                exitHook(state.action, update, newState);
+                            }
+                        }
                         this.my_state = newState;
                         this.replaceState(newState);
                         //console.log("to: " + formatState(newState));
@@ -296,25 +305,31 @@ export function getTimeBarComponent(environmentArgs) {
                 });
             };
 
-            var onTouchStart = e => {
+            var touchHandler = e => {
                 e.preventDefault();
                 e.stopPropagation();
 
-                return;
-                var offset = e.client; // TODO compute
-                var startTime = max * offset / width;
-                var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
+                var touch = e.changedTouches[0];
 
-                if (bounds) {
-                    onIntervalNew(bounds);
+                var type;
+                switch (e.type) {
+                    case "touchstart": type = BAR_TOUCH_START; break;
+                    case "touchend": type = BAR_TOUCH_END; break;
                 }
+
+                inputObserver.onNext({
+                    type: type,
+                    touchId: touch.identifier,
+                    coords: { x: touch.clientX, y: touch.clientY }
+                });
             };
 
             return (<div className={["time-bar", direction].join(" ")}
                         style={(direction === "horizontal") ? { width: width } : { height: width }}
                         onMouseMove={barMouseMove}
-                        onTouchStart={onTouchStart}
-                        onMouseLeave={barMouseLeave}>
+                        onMouseLeave={barMouseLeave}
+                        onTouchStart={touchHandler}
+                        onTouchEnd={touchHandler}>
                 {intervalPreview}
                 {mappedIntervals}
             </div>);

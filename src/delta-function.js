@@ -1,7 +1,14 @@
 
-import { TimeBarState, MouseDraggingAction, TouchDraggingAction, isDraggingAction, PreviewAction, TERMINATION_MSG } from './state';
+import { TimeBarState, MouseDraggingAction, TouchDraggingAction, isDraggingAction, PreviewAction, TERMINATION_MSG, FirstPressed, FirstReleased, SecondPressed } from './state';
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './functions/global-cursor';
 import { getRemovedIds, noop } from './functions/utils';
+import { O1Map } from './o1map';
+import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP } from './events';
+
+export var stateExitClearTimeoutHooks = new O1Map()
+    .set(FirstPressed, function(state, input, nextState) { if (input.type !== BAR_LONG_PRESS) clearTimeout(state.longPressTimeoutId); })
+    .set(FirstReleased, function(state, input, nextState) { if (input.type !== BAR_SINGLE_TAP) clearTimeout(state.singleTapTimeoutId); })
+    .set(SecondPressed, function(state, input, nextState) { if (input.type !== BAR_LONG_PRESS) clearTimeout(state.longPressTimeoutId); });
 
 function getCursorName(direction, side) {
     return {
@@ -101,6 +108,93 @@ function touch_drag(state, touchEvent) {
     return newState;
 }
 
+export function newInterval(state, input) {
+    /*
+    var offset = e.client; // TODO compute
+    var startTime = max * offset / width;
+    var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
+    if (bounds) {
+    }
+    // TODO onIntervalNew(bounds);
+    */
+}
+
+export function processTimeBarTouchEvent(state, input, stream) {
+    var { action, onIntervalNew, onDoubleTap } = state;
+    var { coords } = input;
+
+    var newState = state;
+
+    if (action instanceof FirstPressed && input.type === BAR_TOUCH_END) {
+        //console.log("touch end!");
+        if (onDoubleTap === noop) {
+            newState = state.set("action", null);
+            // TODO single tap
+            console.log("SINGLE-TAP");
+        } else {
+            newState = state.set("action", new FirstReleased({
+                singleTapTimeoutId: setTimeout(function() {
+                    // single-tap timeout
+                    stream.onNext({
+                        type: BAR_SINGLE_TAP,
+                        touchId: input.touchId
+                    });
+                }, 300)
+            }));
+        }
+    } else if (action instanceof FirstPressed && input.type === BAR_LONG_PRESS) {
+        newState = state.set("action", null);
+        // TODO longpress
+        console.log("LONGPRESS");
+    } else if (action instanceof FirstReleased && input.type === BAR_SINGLE_TAP) {
+        console.log("SINGLE-TAP");
+        newState = state.set("action", null);
+    } else if (action instanceof FirstReleased && input.type === BAR_TOUCH_START) {
+        newState = state.set("action", new SecondPressed({
+            longPressTimeoutId: setTimeout(function() {
+                // longpress
+                stream.onNext({
+                    type: BAR_LONG_PRESS,
+                    touchId: input.touchId
+                });
+            }, 800)
+        }));
+    } else if (action instanceof SecondPressed && input.type === BAR_TOUCH_END) {
+        // TODO doble-tap
+        console.log("DOUBLE-TAP");
+        newState = state.set("action", null);
+    } else if (action instanceof SecondPressed && input.type === BAR_LONG_PRESS) {
+        // TODO longpress
+        console.log("DOUBLE-LONGPRESS");
+        newState = state.set("action", null);
+    } else if (input.type === BAR_TOUCH_START) {
+        //console.log("touch start!");
+        newState = state.set("action", new FirstPressed({
+            longPressTimeoutId: setTimeout(function() {
+                // longpress
+                stream.onNext({
+                    type: BAR_LONG_PRESS,
+                    touchId: input.touchId
+                });
+            }, 800)
+        }));
+    } else if (input.type === BAR_TOUCH_END) {
+        // residual touch
+        //console.log("residual touch");
+        /**
+         * it would be better to set a special state when
+         * we transit to the null action carrying the information
+         * that we will transit into the default state as soon as
+         * the touch ends
+         */
+    } else {
+        console.error("Unexpected state-input combination!");
+        console.error(state.action.toJS());
+        console.error(input);
+    }
+    return newState;
+}
+
 export function deltaFunction(state, input, stream, environment, terminate) {
     var { action, onIntervalClick, onDragEnd, onLongPress } = state;
     var { capturedMouseEvents } = environment;
@@ -138,6 +232,8 @@ export function deltaFunction(state, input, stream, environment, terminate) {
             }
         }
         newState = newState.merge(newProps);
+    } else if (input.type === BAR_TOUCH_START || input.type ===  BAR_TOUCH_END || input.type === BAR_LONG_PRESS || input.type === BAR_SINGLE_TAP) {
+        newState = processTimeBarTouchEvent(state, input, stream);
     } else if (input.type === "bar-mousemove") {
         newState = state.set("action", new PreviewAction({ offset: input.offset }));
     } else if (input.type === "bar-mouseleave") {
