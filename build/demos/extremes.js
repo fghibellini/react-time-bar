@@ -12857,6 +12857,8 @@
 	            onIntervalDrag: React.PropTypes.func,
 	            onDragEnd: React.PropTypes.func,
 	            onLongPress: React.PropTypes.func,
+	            onDoubleLongPress: React.PropTypes.func,
+	            onTap: React.PropTypes.func,
 	            longPressInterval: React.PropTypes.number,
 	            mouseMoveRadius: React.PropTypes.number,
 	            touchMoveRadius: React.PropTypes.number,
@@ -12882,6 +12884,8 @@
 	                onIntervalDrag: _functionsUtils.noop,
 	                onDragEnd: _functionsUtils.noop,
 	                onLongPress: _functionsUtils.noop,
+	                onDoubleLongPress: _functionsUtils.noop,
+	                onTap: _functionsUtils.noop,
 	                longPressInterval: 800,
 	                mouseMoveRadius: 10,
 	                touchMoveRadius: 10,
@@ -12936,9 +12940,11 @@
 	                    _this.__deltaRunnging = false;
 
 	                    if (newState !== state) {
-	                        var exitHook = state.action && state.action.constructor && _deltaFunction.stateExitClearTimeoutHooks.get(state.action.constructor);
-	                        if (exitHook) {
-	                            exitHook(state.action, update, newState);
+	                        if (newState.action !== state.action) {
+	                            var exitHook = state.action && state.action.constructor && _deltaFunction.stateExitClearTimeoutHooks.get(state.action.constructor);
+	                            if (exitHook) {
+	                                exitHook(state.action, update, newState);
+	                            }
 	                        }
 	                        _this.my_state = newState;
 	                        _this.replaceState(newState);
@@ -23784,6 +23790,8 @@
 	    onIntervalDrag: null,
 	    onDragEnd: null,
 	    onLongPress: null,
+	    onDoubleLongPress: null,
+	    onTap: null,
 	    longPressInterval: 300,
 	    mouseMoveRadius: 10,
 	    touchMoveRadius: 10,
@@ -23819,6 +23827,8 @@
 	    onIntervalDrag: _functionsUtils.noop,
 	    onDragEnd: _functionsUtils.noop,
 	    onLongPress: _functionsUtils.noop,
+	    onDoubleLongPress: _functionsUtils.noop,
+	    onTap: _functionsUtils.noop,
 	    longPressInterval: 300,
 	    mouseMoveRadius: 2,
 	    touchMoveRadius: 2,
@@ -28973,12 +28983,13 @@
 	    */
 	}
 
-	window.f = _state.FirstPressed;
-
 	function processTimeBarTouchEvent(state, input, stream) {
 	    var action = state.action;
 	    var onIntervalNew = state.onIntervalNew;
 	    var onDoubleTap = state.onDoubleTap;
+	    var onLongPress = state.onLongPress;
+	    var onTap = state.onTap;
+	    var onDoubleLongPress = state.onDoubleLongPress;
 	    var coords = input.coords;
 
 	    var newState = state;
@@ -28987,8 +28998,7 @@
 	        //console.log("touch end!");
 	        if (onDoubleTap === _functionsUtils.noop) {
 	            newState = state.set("action", null);
-	            // TODO single tap
-	            console.log("SINGLE-TAP");
+	            onTap();
 	        } else {
 	            newState = state.set("action", new _state.FirstReleased({
 	                singleTapTimeoutId: setTimeout(function () {
@@ -29002,11 +29012,10 @@
 	        }
 	    } else if (action instanceof _state.FirstPressed && input.type === _events.BAR_LONG_PRESS) {
 	        newState = state.set("action", null);
-	        // TODO longpress
-	        console.log("LONGPRESS");
+	        onLongPress();
 	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_SINGLE_TAP) {
-	        console.log("SINGLE-TAP");
 	        newState = state.set("action", null);
+	        onTap();
 	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_TOUCH_START) {
 	        newState = state.set("action", new _state.SecondPressed({
 	            longPressTimeoutId: setTimeout(function () {
@@ -29015,16 +29024,14 @@
 	                    type: _events.BAR_LONG_PRESS,
 	                    touchId: input.touchId
 	                });
-	            }, 800)
+	            }, 600)
 	        }));
 	    } else if (action instanceof _state.SecondPressed && input.type === _events.BAR_TOUCH_END) {
-	        // TODO doble-tap
-	        console.log("DOUBLE-TAP");
 	        newState = state.set("action", null);
+	        onDoubleTap();
 	    } else if (action instanceof _state.SecondPressed && input.type === _events.BAR_LONG_PRESS) {
-	        // TODO longpress
-	        console.log("DOUBLE-LONGPRESS");
 	        newState = state.set("action", null);
+	        onDoubleLongPress();
 	    } else if (input.type === _events.BAR_TOUCH_START) {
 	        //console.log("touch start!");
 	        newState = state.set("action", new _state.FirstPressed({
@@ -29034,7 +29041,7 @@
 	                    type: _events.BAR_LONG_PRESS,
 	                    touchId: input.touchId
 	                });
-	            }, 800)
+	            }, 600)
 	        }));
 	    } else if (input.type === _events.BAR_TOUCH_END) {
 	        // residual touch

@@ -55,6 +55,7 @@ function onIntervalClick(intervalId, e) {
 
     interval.className = interval.className === "highlighted" ? "" : "highlighted";
 
+    loggedEvents.splice(0, 0, { type: `interval-click (${intervalId})` });
     refresh();
 }
 
@@ -111,11 +112,23 @@ function onIntervalDrag(intervalId, newIntervalStart) {
 }
 
 function onLongPress() {
-    console.log(`longPressed on whole timebar`);
+    loggedEvents.splice(0, 0, { type: "long-press" });
+    refresh();
+}
+
+function onDoubleLongPress() {
+    loggedEvents.splice(0, 0, { type: "double-long-press" });
+    refresh();
+}
+
+function onTap() {
+    loggedEvents.splice(0, 0, { type: "single-tap" });
+    refresh();
 }
 
 function onDoubleTap() {
-    console.log(`double tap!`);
+    loggedEvents.splice(0, 0, { type: "double-tap" });
+    refresh();
 }
 
 function onIntervalLongPress(intervalId) {
@@ -155,6 +168,7 @@ var serverData = [
     }
 ];
 
+var loggedEvents = [];
 var intervals = toTimeBarIntervals(serverData);
 
 function refresh() {
@@ -162,19 +176,32 @@ function refresh() {
     window.document.getElementById("intervals").innerText = intervalsToString(intervals);
 
     React.render(
-        <TimeBar max={(18-8)*60}
-                 width={800}
-                 intervals={intervals}
-                 onStartChange={updateStart}
-                 onEndChange={updateEnd}
-                 onIntervalClick={onIntervalClick}
-                 onIntervalDrag={onIntervalDrag}
-                 onIntervalNew={genNewInterval}
-                 onLongPress={onLongPress}
-                 onDoubleTap={onDoubleTap}
-                 onIntervalLongPress={onIntervalLongPress}
-                 intervalContentGenerator={intervalContentGen}
-                 direction={"vertical"} />,
+        <div>
+            <TimeBar max={(18-8)*60}
+                     width={800}
+                     intervals={intervals}
+                     onStartChange={updateStart}
+                     onEndChange={updateEnd}
+                     onIntervalClick={onIntervalClick}
+                     onIntervalDrag={onIntervalDrag}
+                     onIntervalNew={genNewInterval}
+                     onLongPress={onLongPress}
+                     onDoubleLongPress={onDoubleLongPress}
+                     onDoubleTap={onDoubleTap}
+                     onTap={onTap}
+                     onIntervalLongPress={onIntervalLongPress}
+                     intervalContentGenerator={intervalContentGen}
+                     direction={"vertical"} />
+            <ul className="event-log">
+                { loggedEvents.map((e,i) => {
+                      var c = loggedEvents.length - i;
+                      return <li key={c}>
+                          <span className="counter">{c}</span>
+                          <span className="event-type">{e.type}</span>
+                      </li>;
+                  }) }
+            </ul>
+        </div>,
         window.document.getElementById("container")
     );
 }

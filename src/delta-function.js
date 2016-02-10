@@ -120,7 +120,7 @@ export function newInterval(state, input) {
 }
 
 export function processTimeBarTouchEvent(state, input, stream) {
-    var { action, onIntervalNew, onDoubleTap } = state;
+    var { action, onIntervalNew, onDoubleTap, onLongPress, onTap, onDoubleLongPress } = state;
     var { coords } = input;
 
     var newState = state;
@@ -129,8 +129,7 @@ export function processTimeBarTouchEvent(state, input, stream) {
         //console.log("touch end!");
         if (onDoubleTap === noop) {
             newState = state.set("action", null);
-            // TODO single tap
-            console.log("SINGLE-TAP");
+            onTap();
         } else {
             newState = state.set("action", new FirstReleased({
                 singleTapTimeoutId: setTimeout(function() {
@@ -144,11 +143,10 @@ export function processTimeBarTouchEvent(state, input, stream) {
         }
     } else if (action instanceof FirstPressed && input.type === BAR_LONG_PRESS) {
         newState = state.set("action", null);
-        // TODO longpress
-        console.log("LONGPRESS");
+        onLongPress();
     } else if (action instanceof FirstReleased && input.type === BAR_SINGLE_TAP) {
-        console.log("SINGLE-TAP");
         newState = state.set("action", null);
+        onTap();
     } else if (action instanceof FirstReleased && input.type === BAR_TOUCH_START) {
         newState = state.set("action", new SecondPressed({
             longPressTimeoutId: setTimeout(function() {
@@ -157,16 +155,14 @@ export function processTimeBarTouchEvent(state, input, stream) {
                     type: BAR_LONG_PRESS,
                     touchId: input.touchId
                 });
-            }, 800)
+            }, 600)
         }));
     } else if (action instanceof SecondPressed && input.type === BAR_TOUCH_END) {
-        // TODO doble-tap
-        console.log("DOUBLE-TAP");
         newState = state.set("action", null);
+        onDoubleTap();
     } else if (action instanceof SecondPressed && input.type === BAR_LONG_PRESS) {
-        // TODO longpress
-        console.log("DOUBLE-LONGPRESS");
         newState = state.set("action", null);
+        onDoubleLongPress();
     } else if (input.type === BAR_TOUCH_START) {
         //console.log("touch start!");
         newState = state.set("action", new FirstPressed({
@@ -176,7 +172,7 @@ export function processTimeBarTouchEvent(state, input, stream) {
                     type: BAR_LONG_PRESS,
                     touchId: input.touchId
                 });
-            }, 800)
+            }, 600)
         }));
     } else if (input.type === BAR_TOUCH_END) {
         // residual touch

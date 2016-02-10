@@ -118,6 +118,7 @@
 
 	    interval.className = interval.className === "highlighted" ? "" : "highlighted";
 
+	    loggedEvents.splice(0, 0, { type: "interval-click (" + intervalId + ")" });
 	    refresh();
 	}
 
@@ -182,11 +183,23 @@
 	}
 
 	function onLongPress() {
-	    console.log("longPressed on whole timebar");
+	    loggedEvents.splice(0, 0, { type: "long-press" });
+	    refresh();
+	}
+
+	function onDoubleLongPress() {
+	    loggedEvents.splice(0, 0, { type: "double-long-press" });
+	    refresh();
+	}
+
+	function onTap() {
+	    loggedEvents.splice(0, 0, { type: "single-tap" });
+	    refresh();
 	}
 
 	function onDoubleTap() {
-	    console.log("double tap!");
+	    loggedEvents.splice(0, 0, { type: "double-tap" });
+	    refresh();
 	}
 
 	function onIntervalLongPress(intervalId) {
@@ -224,25 +237,53 @@
 	    to: "15:00"
 	}];
 
+	var loggedEvents = [];
 	var intervals = toTimeBarIntervals(serverData);
 
 	function refresh() {
 
 	    window.document.getElementById("intervals").innerText = intervalsToString(intervals);
 
-	    React.render(React.createElement(_srcComponent.TimeBar, { max: (18 - 8) * 60,
-	        width: 800,
-	        intervals: intervals,
-	        onStartChange: updateStart,
-	        onEndChange: updateEnd,
-	        onIntervalClick: onIntervalClick,
-	        onIntervalDrag: onIntervalDrag,
-	        onIntervalNew: genNewInterval,
-	        onLongPress: onLongPress,
-	        onDoubleTap: onDoubleTap,
-	        onIntervalLongPress: onIntervalLongPress,
-	        intervalContentGenerator: intervalContentGen,
-	        direction: "vertical" }), window.document.getElementById("container"));
+	    React.render(React.createElement(
+	        "div",
+	        null,
+	        React.createElement(_srcComponent.TimeBar, { max: (18 - 8) * 60,
+	            width: 800,
+	            intervals: intervals,
+	            onStartChange: updateStart,
+	            onEndChange: updateEnd,
+	            onIntervalClick: onIntervalClick,
+	            onIntervalDrag: onIntervalDrag,
+	            onIntervalNew: genNewInterval,
+	            onLongPress: onLongPress,
+	            onDoubleLongPress: onDoubleLongPress,
+	            onDoubleTap: onDoubleTap,
+	            onTap: onTap,
+	            onIntervalLongPress: onIntervalLongPress,
+	            intervalContentGenerator: intervalContentGen,
+	            direction: "vertical" }),
+	        React.createElement(
+	            "ul",
+	            { className: "event-log" },
+	            loggedEvents.map(function (e, i) {
+	                var c = loggedEvents.length - i;
+	                return React.createElement(
+	                    "li",
+	                    { key: c },
+	                    React.createElement(
+	                        "span",
+	                        { className: "counter" },
+	                        c
+	                    ),
+	                    React.createElement(
+	                        "span",
+	                        { className: "event-type" },
+	                        e.type
+	                    )
+	                );
+	            })
+	        )
+	    ), window.document.getElementById("container"));
 	}
 
 	refresh();
@@ -12972,6 +13013,8 @@
 	            onIntervalDrag: React.PropTypes.func,
 	            onDragEnd: React.PropTypes.func,
 	            onLongPress: React.PropTypes.func,
+	            onDoubleLongPress: React.PropTypes.func,
+	            onTap: React.PropTypes.func,
 	            longPressInterval: React.PropTypes.number,
 	            mouseMoveRadius: React.PropTypes.number,
 	            touchMoveRadius: React.PropTypes.number,
@@ -12997,6 +13040,8 @@
 	                onIntervalDrag: _functionsUtils.noop,
 	                onDragEnd: _functionsUtils.noop,
 	                onLongPress: _functionsUtils.noop,
+	                onDoubleLongPress: _functionsUtils.noop,
+	                onTap: _functionsUtils.noop,
 	                longPressInterval: 800,
 	                mouseMoveRadius: 10,
 	                touchMoveRadius: 10,
@@ -13051,9 +13096,11 @@
 	                    _this.__deltaRunnging = false;
 
 	                    if (newState !== state) {
-	                        var exitHook = state.action && state.action.constructor && _deltaFunction.stateExitClearTimeoutHooks.get(state.action.constructor);
-	                        if (exitHook) {
-	                            exitHook(state.action, update, newState);
+	                        if (newState.action !== state.action) {
+	                            var exitHook = state.action && state.action.constructor && _deltaFunction.stateExitClearTimeoutHooks.get(state.action.constructor);
+	                            if (exitHook) {
+	                                exitHook(state.action, update, newState);
+	                            }
 	                        }
 	                        _this.my_state = newState;
 	                        _this.replaceState(newState);
@@ -23899,6 +23946,8 @@
 	    onIntervalDrag: null,
 	    onDragEnd: null,
 	    onLongPress: null,
+	    onDoubleLongPress: null,
+	    onTap: null,
 	    longPressInterval: 300,
 	    mouseMoveRadius: 10,
 	    touchMoveRadius: 10,
@@ -23934,6 +23983,8 @@
 	    onIntervalDrag: _functionsUtils.noop,
 	    onDragEnd: _functionsUtils.noop,
 	    onLongPress: _functionsUtils.noop,
+	    onDoubleLongPress: _functionsUtils.noop,
+	    onTap: _functionsUtils.noop,
 	    longPressInterval: 300,
 	    mouseMoveRadius: 2,
 	    touchMoveRadius: 2,
@@ -29088,12 +29139,13 @@
 	    */
 	}
 
-	window.f = _state.FirstPressed;
-
 	function processTimeBarTouchEvent(state, input, stream) {
 	    var action = state.action;
 	    var onIntervalNew = state.onIntervalNew;
 	    var onDoubleTap = state.onDoubleTap;
+	    var onLongPress = state.onLongPress;
+	    var onTap = state.onTap;
+	    var onDoubleLongPress = state.onDoubleLongPress;
 	    var coords = input.coords;
 
 	    var newState = state;
@@ -29102,8 +29154,7 @@
 	        //console.log("touch end!");
 	        if (onDoubleTap === _functionsUtils.noop) {
 	            newState = state.set("action", null);
-	            // TODO single tap
-	            console.log("SINGLE-TAP");
+	            onTap();
 	        } else {
 	            newState = state.set("action", new _state.FirstReleased({
 	                singleTapTimeoutId: setTimeout(function () {
@@ -29117,11 +29168,10 @@
 	        }
 	    } else if (action instanceof _state.FirstPressed && input.type === _events.BAR_LONG_PRESS) {
 	        newState = state.set("action", null);
-	        // TODO longpress
-	        console.log("LONGPRESS");
+	        onLongPress();
 	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_SINGLE_TAP) {
-	        console.log("SINGLE-TAP");
 	        newState = state.set("action", null);
+	        onTap();
 	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_TOUCH_START) {
 	        newState = state.set("action", new _state.SecondPressed({
 	            longPressTimeoutId: setTimeout(function () {
@@ -29130,16 +29180,14 @@
 	                    type: _events.BAR_LONG_PRESS,
 	                    touchId: input.touchId
 	                });
-	            }, 800)
+	            }, 600)
 	        }));
 	    } else if (action instanceof _state.SecondPressed && input.type === _events.BAR_TOUCH_END) {
-	        // TODO doble-tap
-	        console.log("DOUBLE-TAP");
 	        newState = state.set("action", null);
+	        onDoubleTap();
 	    } else if (action instanceof _state.SecondPressed && input.type === _events.BAR_LONG_PRESS) {
-	        // TODO longpress
-	        console.log("DOUBLE-LONGPRESS");
 	        newState = state.set("action", null);
+	        onDoubleLongPress();
 	    } else if (input.type === _events.BAR_TOUCH_START) {
 	        //console.log("touch start!");
 	        newState = state.set("action", new _state.FirstPressed({
@@ -29149,7 +29197,7 @@
 	                    type: _events.BAR_LONG_PRESS,
 	                    touchId: input.touchId
 	                });
-	            }, 800)
+	            }, 600)
 	        }));
 	    } else if (input.type === _events.BAR_TOUCH_END) {
 	        // residual touch
@@ -50849,7 +50897,7 @@
 
 
 	// module
-	exports.push([module.id, "html,\nbody {\n  box-sizing: border-box;\n  padding: 0;\n  margin: 0;\n}\n.highlighted {\n  background: red;\n}\n.remove-button {\n  color: red;\n  cursor: pointer;\n}\n.remove-button:hover {\n  font-weight: bold;\n}\n.interval {\n  overflow: hidden;\n}\n#mousemove-visualizer {\n  box-sizing: border-box;\n  padding: 10px;\n  margin: 3px 0 10px;\n  width: 100%;\n  background: #eee;\n  border: 2px dashed #ccc;\n}\n#mousemove-visualizer p {\n  white-space: pre-line;\n}\nh1 {\n  padding: 0;\n  margin: 5px 10px;\n}\n.time-bar {\n  width: 50px;\n}\n#container {\n  display: inline-block;\n}\n#left {\n  display: inline-block;\n  min-height: 100%;\n  float: left;\n  padding: 10px;\n}\n#right {\n  display: none;\n  float: left;\n  width: 500px;\n  /*background: purple;*/\n  padding: 10px;\n}\n", ""]);
+	exports.push([module.id, "html,\nbody {\n  box-sizing: border-box;\n  padding: 0;\n  margin: 0;\n}\n.highlighted {\n  background: red;\n}\n.remove-button {\n  color: red;\n  cursor: pointer;\n}\n.remove-button:hover {\n  font-weight: bold;\n}\n.interval {\n  overflow: hidden;\n}\n#mousemove-visualizer {\n  box-sizing: border-box;\n  padding: 10px;\n  margin: 3px 0 10px;\n  width: 100%;\n  background: #eee;\n  border: 2px dashed #ccc;\n}\n#mousemove-visualizer p {\n  white-space: pre-line;\n}\nh1 {\n  padding: 0;\n  margin: 5px 10px;\n}\n.time-bar {\n  width: 50px;\n  display: inline-block;\n}\n#container {\n  display: inline-block;\n}\n#left {\n  display: inline-block;\n  min-height: 100%;\n  float: left;\n  padding: 10px;\n}\n#right {\n  display: none;\n  float: left;\n  width: 500px;\n  /*background: purple;*/\n  padding: 10px;\n}\n.event-log {\n  list-style: none;\n  padding: 0;\n  margin: 0 0 0 40px;\n  display: inline-block;\n  vertical-align: top;\n  height: 800px;\n  width: 200px;\n  overflow-y: scroll;\n}\n.event-log li {\n  display: block;\n  color: white;\n  background: blue;\n  padding: 5px;\n  border-radius: 3px;\n  margin: 5px;\n}\n.event-log li .counter {\n  background: red;\n  padding: 3px;\n  margin: 4px;\n  border-radius: 5px;\n}\n", ""]);
 
 	// exports
 
