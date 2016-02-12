@@ -9,7 +9,7 @@ import { TimeBarState, PreviewAction, TouchDraggingAction, intervalsToImmutable,
 import { deltaFunction, stateExitClearTimeoutHooks } from './delta-function';
 import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
 import { defaultPreviewBoundsGenerator } from './functions/common';
-import { BAR_TOUCH_START, BAR_TOUCH_END } from './events';
+import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS } from './events';
 
 var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
 var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
@@ -91,29 +91,19 @@ export function getTimeBarComponent(environmentArgs) {
             return mergeInputs([inputSubject, capturedMouseEvents]).observeOn(rx.Scheduler.currentThread);
         },
         setupStateMachine: function(allInputs, deltaFunction) {
-            function formatState(state) {
-                if (state.action) {
-                    var action = state.action;
-                    if (action instanceof TouchDraggingAction) {
-                        return state.action.movedSinceTouchStart;
-                    } else {
-                        return "<action not touch-drag>";
-                    }
-                } else {
-                    return "<no action>";
-                }
+            function formatState(s) {
+                //return JSON.stringify(s.action);
             }
             var SM_Subscription = allInputs.subscribe(update => {
                 try {
                     /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
                     var { my_state: state, inputObserver } = this;
 
-                    /*
                     console.log("TRANSITION:");
                     console.log("-----------");
-                    console.log("update: " + JSON.stringify(update));
+                    //console.log("update: " + JSON.stringify(update));
+                    console.log(update);
                     console.log("from: " + formatState(state));
-                    */
 
                     if (this.__deltaRunnging) { console.error(Error(NESTED_DELTAS_ERROR)); }
                     this.__deltaRunnging = true;
@@ -121,17 +111,17 @@ export function getTimeBarComponent(environmentArgs) {
                     this.__deltaRunnging = false;
 
                     if (newState !== state) {
-                        if (newState.action !== state.action) {
+                        if (state.action && (!newState.action || newState.action.constructor !== state.action.constructor)) {
                             var exitHook = state.action && state.action.constructor && stateExitClearTimeoutHooks.get(state.action.constructor);
                             if (exitHook) {
-                                exitHook(state.action, update, newState);
+                                exitHook(state, update, newState);
                             }
                         }
                         this.my_state = newState;
                         this.replaceState(newState);
-                        //console.log("to: " + formatState(newState));
+                        console.log("to: " + formatState(newState));
                     } else {
-                        //console.log("[not replacing state]");
+                        console.log("[not replacing state]");
                     }
                 } catch (e) {
                     // Prevent unexpected errors to freeze the time bar.
@@ -156,7 +146,7 @@ export function getTimeBarComponent(environmentArgs) {
         componentWillReceiveProps: function(newProps) {
             var { inputObserver } = this;
             var newPropUpdate = {
-                type: "propchange",
+                type: "propchange", // TODO event symbol
                 newProps: propsToImmutable(newProps)
             };
             inputObserver.onNext(newPropUpdate);
@@ -184,7 +174,7 @@ export function getTimeBarComponent(environmentArgs) {
 
                 var mouseDownHandlerGen = (side, timeBeforeDrag) => e => {
                     inputObserver.onNext({
-                        type: "mousedown",
+                        type: INTERVAL_MOUSE_DOWN,
                         intervalId: interval.id,
                         side: side,
                         initialCoords: { x: e.clientX, y: e.clientY },
@@ -197,7 +187,7 @@ export function getTimeBarComponent(environmentArgs) {
                 var touchStartHandlerGen = (side, timeBeforeDrag) => e => {
                     var touch = e.changedTouches[0];
                     inputObserver.onNext({
-                        type: "touchstart",
+                        type: INTERVAL_TOUCH_START,
                         intervalId: interval.id,
                         side: side,
                         touchId: touch.identifier,
@@ -211,7 +201,7 @@ export function getTimeBarComponent(environmentArgs) {
                 var touchMove = e => {
                     var touch = e.changedTouches[0];
                     inputObserver.onNext({
-                        type: "touchmove",
+                        type: INTERVAL_TOUCH_MOVE,
                         touchId: touch.identifier,
                         clientX: touch.clientX,
                         clientY: touch.clientY
@@ -223,7 +213,7 @@ export function getTimeBarComponent(environmentArgs) {
                 var touchEnd = e => {
                     var touch = e.changedTouches[0];
                     inputObserver.onNext({
-                        type: "touchend",
+                        type: INTERVAL_TOUCH_END,
                         touchId: touch.identifier,
                         clientX: touch.clientX,
                         clientY: touch.clientY
@@ -261,7 +251,7 @@ export function getTimeBarComponent(environmentArgs) {
 
             // THE PREVIEW OF A NEW INERVAL
 
-            var intervalPreview = !(action && action instanceof PreviewAction) ? null : (() => {
+            var intervalPreview = !(action instanceof PreviewAction) ? null : (() => {
                 var offset = action.offset;
                 var startTime = max * offset / width;
                 var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
@@ -293,19 +283,19 @@ export function getTimeBarComponent(environmentArgs) {
                     var offset = page - bounding;
 
                     inputObserver.onNext({
-                        type: "bar-mousemove",
+                        type: BAR_MOUSE_MOVE,
                         offset: offset
                     });
                 } else {
                     inputObserver.onNext({
-                        type: "bar-mouseleave"
+                        type: BAR_MOUSE_LEAVE
                     });
                 }
             };
 
             var barMouseLeave = e => {
                 inputObserver.onNext({
-                    type: "bar-mouseleave"
+                    type: BAR_MOUSE_LEAVE
                 });
             };
 

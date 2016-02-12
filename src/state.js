@@ -90,7 +90,8 @@ export var MouseDraggingAction = new Immutable.Record({
     side: "both",                     // one of: "left", "right", "both"
     initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
     timeBeforeDrag: null,             // the value of the property modified by the drag before the drag started
-    movedSinceMouseDown: false        // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+    movedSinceMouseDown: false,       // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+    capturedMouseEvents: null
 });
 
 export var TouchDraggingAction = new Immutable.Record({
