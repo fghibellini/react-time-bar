@@ -3,7 +3,7 @@ import { TimeBarState, MouseDraggingAction, TouchDraggingAction, isDraggingActio
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './functions/global-cursor';
 import { getRemovedIds, noop } from './functions/utils';
 import { O1Map } from './o1map';
-import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS, PROPERTY_CHANGE, TERMINATE } from './events';
+import { isMouseEvent, BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS, PROPERTY_CHANGE, TERMINATE } from './events';
 import { CREATE_INTERVAL } from './component';
 
 export var stateExitClearTimeoutHooks = new O1Map()
@@ -11,8 +11,11 @@ export var stateExitClearTimeoutHooks = new O1Map()
     .set(FirstReleased, function(state, input, nextState) { if (input.type !== BAR_SINGLE_TAP) clearTimeout(state.action.singleTapTimeoutId); })
     .set(SecondPressed, function(state, input, nextState) { if (input.type !== BAR_LONG_PRESS) clearTimeout(state.action.longPressTimeoutId); })
     .set(MouseDraggingAction, function(state, input, nextState) {
+        var { action: { movedSinceMouseDown, capturedMouseEvents, longPressTimeoutId } } = state;
+        if (input.type !== INTERVAL_LONG_PRESS) {
+            clearTimeout(longPressTimeoutId);
+        }
         if (input.type !== GLOBAL_MOUSE_UP) {
-            var { action: { movedSinceMouseDown, capturedMouseEvents } } = state;
             if (movedSinceMouseDown) {
                 unsetCursorToWholeDocument(window.document);
             }
@@ -20,7 +23,10 @@ export var stateExitClearTimeoutHooks = new O1Map()
         }
     })
     .set(TouchDraggingAction, function(state, input, nextState) {
-        var { action: { intervalId, touchId, movedSinceTouchStart }, onDragEnd } = state;
+        var { action: { intervalId, touchId, movedSinceTouchStart, longPressTimeoutId }, onDragEnd } = state;
+        if (input.type !== INTERVAL_LONG_PRESS) {
+            clearTimeout(longPressTimeoutId);
+        }
         if (touchId === input.touchId) {
             if (movedSinceTouchStart) {
                 onDragEnd(intervalId);
@@ -111,18 +117,6 @@ export function processTimeBarTouchEvent(state, input, stream) {
                 });
             }, 600)
         }));
-    } else if (input.type === BAR_TOUCH_END) {
-        /**
-         * residual touch
-         *
-         * this happens for example after a longpress
-         *
-         * it would be better to set a special state when
-         * we transit to the null action carrying the information
-         * that we will transit into the default state as soon as
-         * the touch ends
-         */
-        //console.log("residual touch");
     } else {
         console.error("Unexpected state-input combination!");
         console.error(state.action ? state.action.toJS() : "<no action>");
@@ -251,7 +245,7 @@ function touch_drag(state, touchEvent) {
 }
 
 function processIntervalTouchEvent(state, input, stream) {
-    var { action, onIntervalClick, onIntervalTap, onDragEnd, onLongPress } = state;
+    var { action, onIntervalClick, onIntervalTap, onDragEnd, onLongPress, onIntervalLongPress } = state;
     var newState = state;
 
     if (input.type === INTERVAL_TOUCH_START) {
@@ -285,9 +279,9 @@ function processIntervalTouchEvent(state, input, stream) {
             }
         }
     } else if (action instanceof TouchDraggingAction && input.type === INTERVAL_LONG_PRESS) {
-        if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onLongPress !== noop) {
+        if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onIntervalLongPress !== noop) {
             newState = state.set("action", null);
-            onLongPress(action.intervalId);
+            onIntervalLongPress(action.intervalId);
         }
     }
 
@@ -298,6 +292,8 @@ export function deltaFunction(state, input, stream, environment, terminate) {
     var { action, onIntervalClick, onDragEnd, onLongPress } = state;
 
     var newState = state;
+
+    // SPECIAL INPUTS
 
     if (input.type === TERMINATE) {
         newState = state.set("action", null);
@@ -312,23 +308,60 @@ export function deltaFunction(state, input, stream, environment, terminate) {
             }
         }
         newState = newState.merge(newProps);
-    } else if (input.type === BAR_TOUCH_START || state.action instanceof FirstPressed || state.action instanceof FirstReleased || state.action instanceof SecondPressed ) {
+
+    // BY INITIAL INPUT
+
+    } else if (input.type === BAR_TOUCH_START) {
         newState = processTimeBarTouchEvent(state, input, stream);
-    } else if (input.type === BAR_MOUSE_MOVE || state.action instanceof PreviewAction) {
+    } else if (input.type === BAR_MOUSE_MOVE) {
         newState = processPreviewEvent(state, input);
-    } else if (input.type === INTERVAL_MOUSE_DOWN || state.action instanceof MouseDraggingAction) {
+    } else if (input.type === INTERVAL_MOUSE_DOWN) {
         newState = processIntervalMouseEvent(state, input, environment);
-    } else if (input.type === INTERVAL_TOUCH_START || state.action instanceof TouchDraggingAction) {
+    } else if (input.type === INTERVAL_TOUCH_START) {
         newState = processIntervalTouchEvent(state, input, stream);
+
+    // BY STATE
+
+    } else if (state.action instanceof FirstPressed || state.action instanceof FirstReleased || state.action instanceof SecondPressed ) {
+        newState = processTimeBarTouchEvent(state, input, stream);
+    } else if (state.action instanceof PreviewAction) {
+        newState = processPreviewEvent(state, input);
+    } else if (state.action instanceof MouseDraggingAction) {
+        newState = processIntervalMouseEvent(state, input, environment);
+    } else if (state.action instanceof TouchDraggingAction) {
+        newState = processIntervalTouchEvent(state, input, stream);
+
+    // ERROR CASES
+
+    } else if (input.type === BAR_TOUCH_END) {
+        /**
+         * residual touch
+         *
+         * this happens for example after a longpress
+         *
+         * it would be better to set a special state when
+         * we transit to the null action carrying the information
+         * that we will transit into the default state as soon as
+         * the touch ends
+         */
+        //console.log("residual touch");
     } else {
         console.error("unexpected type of input; ignoring");
     }
 
-    console.log("input:");
-    console.log(input);
-    console.log("new state:");
-    console.log(newState.toJS());
-    console.log("");
+
+    if (isMouseEvent(input.type)) {
+        console.log("");
+        console.log("GOT MOUSE EVENT!:");
+        console.log("-----------------");
+        console.log("input:");
+        console.log(input);
+        console.log("new state:");
+        console.log(newState.toJS());
+        console.log("");
+    } else {
+        console.log(input.type);
+    }
 
     return newState;
 }

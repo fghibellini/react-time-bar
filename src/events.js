@@ -18,3 +18,13 @@ export const INTERVAL_TOUCH_START = "<INTERVAL-TOUCH-START>";
 export const INTERVAL_TOUCH_MOVE = "<INTERVAL-TOUCH-MOVE>";
 export const INTERVAL_TOUCH_END = "<INTERVAL-TOUCH-END>";
 export const INTERVAL_LONG_PRESS = "<INTERVAL-LONG-PRESS>";
+
+export function isMouseEvent(e) {
+    return !!~[
+        BAR_MOUSE_MOVE,
+        BAR_MOUSE_LEAVE,
+        INTERVAL_MOUSE_DOWN,
+        GLOBAL_MOUSE_MOVE,
+        GLOBAL_MOUSE_UP
+    ].indexOf(e);
+}

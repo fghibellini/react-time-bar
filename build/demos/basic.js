@@ -12989,6 +12989,7 @@
 	            onEndChange: React.PropTypes.func,
 	            onIntervalClick: React.PropTypes.func,
 	            onIntervalTap: React.PropTypes.func,
+	            onIntervalLongPress: React.PropTypes.func,
 	            onIntervalDrag: React.PropTypes.func,
 	            onDragEnd: React.PropTypes.func,
 	            onLongPress: React.PropTypes.func,
@@ -13017,6 +13018,7 @@
 	                onEndChange: _functionsUtils.noop,
 	                onIntervalClick: _functionsUtils.noop,
 	                onIntervalTap: _functionsUtils.noop,
+	                onIntervalLongPress: _functionsUtils.noop,
 	                onIntervalDrag: _functionsUtils.noop,
 	                onDragEnd: _functionsUtils.noop,
 	                onLongPress: _functionsUtils.noop,
@@ -13137,6 +13139,8 @@
 
 	                var touchStartHandlerGen = function touchStartHandlerGen(side, timeBeforeDrag) {
 	                    return function (e) {
+	                        e.preventDefault();
+	                        e.stopPropagation();
 	                        var touch = e.changedTouches[0];
 	                        inputObserver.onNext({
 	                            type: _events.INTERVAL_TOUCH_START,
@@ -13146,12 +13150,12 @@
 	                            initialCoords: { x: touch.clientX, y: touch.clientY },
 	                            timeBeforeDrag: timeBeforeDrag
 	                        });
-	                        e.preventDefault();
-	                        e.stopPropagation();
 	                    };
 	                };
 
 	                var touchMove = function touchMove(e) {
+	                    e.preventDefault();
+	                    e.stopPropagation();
 	                    var touch = e.changedTouches[0];
 	                    inputObserver.onNext({
 	                        type: _events.INTERVAL_TOUCH_MOVE,
@@ -13159,8 +13163,6 @@
 	                        clientX: touch.clientX,
 	                        clientY: touch.clientY
 	                    });
-	                    e.preventDefault();
-	                    e.stopPropagation();
 	                };
 
 	                var touchEnd = function touchEnd(e) {
@@ -13196,10 +13198,10 @@
 	                        style: style },
 	                    React.createElement("div", { className: "interval-handle interval-handle-left",
 	                        onMouseDown: leftHandleDragStart,
-	                        onTouchStart: leftHandleDragStart }),
+	                        onTouchStart: leftHandleTouchDragStart }),
 	                    React.createElement("div", { className: "interval-handle interval-handle-right",
 	                        onMouseDown: rightHandleDragStart,
-	                        onTouchStart: rightHandleDragStart }),
+	                        onTouchStart: rightHandleTouchDragStart }),
 	                    intervalContentGenerator(interval)
 	                );
 	            });
@@ -23914,6 +23916,7 @@
 	    onEndChange: null,
 	    onIntervalClick: null,
 	    onIntervalTap: null,
+	    onIntervalLongPress: null,
 	    onIntervalDrag: null,
 	    onDragEnd: null,
 	    onLongPress: null,
@@ -23952,6 +23955,7 @@
 	    onEndChange: _functionsUtils.noop,
 	    onIntervalClick: _functionsUtils.noop,
 	    onIntervalTap: _functionsUtils.noop,
+	    onIntervalLongPress: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
 	    onDragEnd: _functionsUtils.noop,
 	    onLongPress: _functionsUtils.noop,
@@ -28984,11 +28988,15 @@
 	}).set(_state.SecondPressed, function (state, input, nextState) {
 	    if (input.type !== _events.BAR_LONG_PRESS) clearTimeout(state.action.longPressTimeoutId);
 	}).set(_state.MouseDraggingAction, function (state, input, nextState) {
-	    if (input.type !== _events.GLOBAL_MOUSE_UP) {
-	        var _state$action = state.action;
-	        var movedSinceMouseDown = _state$action.movedSinceMouseDown;
-	        var capturedMouseEvents = _state$action.capturedMouseEvents;
+	    var _state$action = state.action;
+	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
+	    var capturedMouseEvents = _state$action.capturedMouseEvents;
+	    var longPressTimeoutId = _state$action.longPressTimeoutId;
 
+	    if (input.type !== _events.INTERVAL_LONG_PRESS) {
+	        clearTimeout(longPressTimeoutId);
+	    }
+	    if (input.type !== _events.GLOBAL_MOUSE_UP) {
 	        if (movedSinceMouseDown) {
 	            (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
 	        }
@@ -28999,8 +29007,12 @@
 	    var intervalId = _state$action2.intervalId;
 	    var touchId = _state$action2.touchId;
 	    var movedSinceTouchStart = _state$action2.movedSinceTouchStart;
+	    var longPressTimeoutId = _state$action2.longPressTimeoutId;
 	    var onDragEnd = state.onDragEnd;
 
+	    if (input.type !== _events.INTERVAL_LONG_PRESS) {
+	        clearTimeout(longPressTimeoutId);
+	    }
 	    if (touchId === input.touchId) {
 	        if (movedSinceTouchStart) {
 	            onDragEnd(intervalId);
@@ -29102,23 +29114,11 @@
 	                });
 	            }, 600)
 	        }));
-	    } else if (input.type === _events.BAR_TOUCH_END) {
-	        /**
-	         * residual touch
-	         *
-	         * this happens for example after a longpress
-	         *
-	         * it would be better to set a special state when
-	         * we transit to the null action carrying the information
-	         * that we will transit into the default state as soon as
-	         * the touch ends
-	         */
-	        //console.log("residual touch");
 	    } else {
-	            console.error("Unexpected state-input combination!");
-	            console.error(state.action ? state.action.toJS() : "<no action>");
-	            console.error(input);
-	        }
+	        console.error("Unexpected state-input combination!");
+	        console.error(state.action ? state.action.toJS() : "<no action>");
+	        console.error(input);
+	    }
 	    return newState;
 	}
 
@@ -29278,6 +29278,7 @@
 	    var onIntervalTap = state.onIntervalTap;
 	    var onDragEnd = state.onDragEnd;
 	    var onLongPress = state.onLongPress;
+	    var onIntervalLongPress = state.onIntervalLongPress;
 
 	    var newState = state;
 
@@ -29320,9 +29321,9 @@
 	            }
 	        }
 	    } else if (action instanceof _state.TouchDraggingAction && input.type === _events.INTERVAL_LONG_PRESS) {
-	        if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onLongPress !== _functionsUtils.noop) {
+	        if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onIntervalLongPress !== _functionsUtils.noop) {
 	            newState = state.set("action", null);
-	            onLongPress(action.intervalId);
+	            onIntervalLongPress(action.intervalId);
 	        }
 	    }
 
@@ -29336,6 +29337,8 @@
 	    var onLongPress = state.onLongPress;
 
 	    var newState = state;
+
+	    // SPECIAL INPUTS
 
 	    if (input.type === _events.TERMINATE) {
 	        newState = state.set("action", null);
@@ -29352,23 +29355,56 @@
 	            }
 	        }
 	        newState = newState.merge(newProps);
-	    } else if (input.type === _events.BAR_TOUCH_START || state.action instanceof _state.FirstPressed || state.action instanceof _state.FirstReleased || state.action instanceof _state.SecondPressed) {
-	        newState = processTimeBarTouchEvent(state, input, stream);
-	    } else if (input.type === _events.BAR_MOUSE_MOVE || state.action instanceof _state.PreviewAction) {
-	        newState = processPreviewEvent(state, input);
-	    } else if (input.type === _events.INTERVAL_MOUSE_DOWN || state.action instanceof _state.MouseDraggingAction) {
-	        newState = processIntervalMouseEvent(state, input, environment);
-	    } else if (input.type === _events.INTERVAL_TOUCH_START || state.action instanceof _state.TouchDraggingAction) {
-	        newState = processIntervalTouchEvent(state, input, stream);
-	    } else {
-	        console.error("unexpected type of input; ignoring");
-	    }
 
-	    console.log("input:");
-	    console.log(input);
-	    console.log("new state:");
-	    console.log(newState.toJS());
-	    console.log("");
+	        // BY INITIAL INPUT
+	    } else if (input.type === _events.BAR_TOUCH_START) {
+	            newState = processTimeBarTouchEvent(state, input, stream);
+	        } else if (input.type === _events.BAR_MOUSE_MOVE) {
+	            newState = processPreviewEvent(state, input);
+	        } else if (input.type === _events.INTERVAL_MOUSE_DOWN) {
+	            newState = processIntervalMouseEvent(state, input, environment);
+	        } else if (input.type === _events.INTERVAL_TOUCH_START) {
+	            newState = processIntervalTouchEvent(state, input, stream);
+
+	            // BY STATE
+	        } else if (state.action instanceof _state.FirstPressed || state.action instanceof _state.FirstReleased || state.action instanceof _state.SecondPressed) {
+	                newState = processTimeBarTouchEvent(state, input, stream);
+	            } else if (state.action instanceof _state.PreviewAction) {
+	                newState = processPreviewEvent(state, input);
+	            } else if (state.action instanceof _state.MouseDraggingAction) {
+	                newState = processIntervalMouseEvent(state, input, environment);
+	            } else if (state.action instanceof _state.TouchDraggingAction) {
+	                newState = processIntervalTouchEvent(state, input, stream);
+
+	                // ERROR CASES
+	            } else if (input.type === _events.BAR_TOUCH_END) {
+	                    /**
+	                     * residual touch
+	                     *
+	                     * this happens for example after a longpress
+	                     *
+	                     * it would be better to set a special state when
+	                     * we transit to the null action carrying the information
+	                     * that we will transit into the default state as soon as
+	                     * the touch ends
+	                     */
+	                    //console.log("residual touch");
+	                } else {
+	                        console.error("unexpected type of input; ignoring");
+	                    }
+
+	    if ((0, _events.isMouseEvent)(input.type)) {
+	        console.log("");
+	        console.log("GOT MOUSE EVENT!:");
+	        console.log("-----------------");
+	        console.log("input:");
+	        console.log(input);
+	        console.log("new state:");
+	        console.log(newState.toJS());
+	        console.log("");
+	    } else {
+	        console.log(input.type);
+	    }
 
 	    return newState;
 	}
@@ -29448,8 +29484,9 @@
 	"use strict";
 
 	Object.defineProperty(exports, "__esModule", {
-	  value: true
+	    value: true
 	});
+	exports.isMouseEvent = isMouseEvent;
 	var TERMINATE = "<TERMINATE>";
 	exports.TERMINATE = TERMINATE;
 	var PROPERTY_CHANGE = "<PROPERTY-CHANGE>";
@@ -29483,7 +29520,12 @@
 	var INTERVAL_TOUCH_END = "<INTERVAL-TOUCH-END>";
 	exports.INTERVAL_TOUCH_END = INTERVAL_TOUCH_END;
 	var INTERVAL_LONG_PRESS = "<INTERVAL-LONG-PRESS>";
+
 	exports.INTERVAL_LONG_PRESS = INTERVAL_LONG_PRESS;
+
+	function isMouseEvent(e) {
+	    return !! ~[BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP].indexOf(e);
+	}
 
 /***/ },
 /* 21 */

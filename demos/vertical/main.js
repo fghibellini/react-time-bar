@@ -67,6 +67,14 @@ function onIntervalTap(intervalId, e) {
     refresh();
 }
 
+function onIntervalLongPress(intervalId, e) {
+    var interval = _.find(intervals, i => i.id === intervalId);
+
+    loggedEvents.splice(0, 0, { type: `interval-longpress (${intervalId})` });
+    refresh();
+}
+
+
 function updateStart(intervalId, time) {
     var interval = _.find(intervals, i => i.id === intervalId);
     var intervalBefore = _.find(intervals, (__, index) => index === (intervals.length - 1) ? false : intervals[index+1].id === intervalId);
@@ -139,10 +147,6 @@ function onDoubleTap() {
     refresh();
 }
 
-function onIntervalLongPress(intervalId) {
-    console.log(`longPressed on interval: ${intervalId}`);
-}
-
 function intervalContentGen(interval) {
     return null;
 }
@@ -176,7 +180,7 @@ var serverData = [
     }
 ];
 
-var loggedEvents = [];
+var loggedEvents = [{ type: "record1"}];
 var intervals = toTimeBarIntervals(serverData);
 
 function refresh() {
@@ -194,11 +198,11 @@ function refresh() {
                      onIntervalTap={onIntervalTap}
                      onIntervalDrag={onIntervalDrag}
                      onIntervalNew={genNewInterval}
+                     onIntervalLongPress={onIntervalLongPress}
                      onLongPress={TimeBar.CREATE_INTERVAL}
                      onDoubleLongPress={onDoubleLongPress}
                      onDoubleTap={onDoubleTap}
                      onTap={onTap}
-                     onIntervalLongPress={onIntervalLongPress}
                      intervalContentGenerator={intervalContentGen}
                      direction={"vertical"} />
             <ul className="event-log">

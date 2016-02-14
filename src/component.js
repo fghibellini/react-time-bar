@@ -45,6 +45,7 @@ export function getTimeBarComponent(environmentArgs) {
             onEndChange: React.PropTypes.func,
             onIntervalClick: React.PropTypes.func,
             onIntervalTap: React.PropTypes.func,
+            onIntervalLongPress: React.PropTypes.func,
             onIntervalDrag: React.PropTypes.func,
             onDragEnd: React.PropTypes.func,
             onLongPress: React.PropTypes.func,
@@ -76,6 +77,7 @@ export function getTimeBarComponent(environmentArgs) {
                 onEndChange: noop,
                 onIntervalClick: noop,
                 onIntervalTap: noop,
+                onIntervalLongPress: noop,
                 onIntervalDrag: noop,
                 onDragEnd: noop,
                 onLongPress: noop,
@@ -182,6 +184,8 @@ export function getTimeBarComponent(environmentArgs) {
                 };
 
                 var touchStartHandlerGen = (side, timeBeforeDrag) => e => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     var touch = e.changedTouches[0];
                     inputObserver.onNext({
                         type: INTERVAL_TOUCH_START,
@@ -191,11 +195,11 @@ export function getTimeBarComponent(environmentArgs) {
                         initialCoords: { x: touch.clientX, y: touch.clientY },
                         timeBeforeDrag: timeBeforeDrag
                     });
-                    e.preventDefault();
-                    e.stopPropagation();
                 };
 
                 var touchMove = e => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     var touch = e.changedTouches[0];
                     inputObserver.onNext({
                         type: INTERVAL_TOUCH_MOVE,
@@ -203,8 +207,6 @@ export function getTimeBarComponent(environmentArgs) {
                         clientX: touch.clientX,
                         clientY: touch.clientY
                     });
-                    e.preventDefault();
-                    e.stopPropagation();
                 };
 
                 var touchEnd = e => {
@@ -238,10 +240,10 @@ export function getTimeBarComponent(environmentArgs) {
                              style={style}>
                     <div className="interval-handle interval-handle-left"
                          onMouseDown={leftHandleDragStart}
-                         onTouchStart={leftHandleDragStart} />
+                         onTouchStart={leftHandleTouchDragStart} />
                     <div className="interval-handle interval-handle-right"
                          onMouseDown={rightHandleDragStart}
-                         onTouchStart={rightHandleDragStart} />
+                         onTouchStart={rightHandleTouchDragStart} />
                     {intervalContentGenerator(interval)}
                 </div>);
             });

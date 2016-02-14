@@ -1,6 +1,7 @@
 
 ## TODO
 
+- add ExpectingRelease state that ignores any input
 - handle touch creation of intervals
 - bundle some common functions used in demos and tests into a separate module
 - clean up demos
