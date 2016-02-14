@@ -3,8 +3,6 @@ var Immutable = require("immutable");
 
 import { noop } from './functions/utils';
 
-export var TERMINATION_MSG = {};
-
 export var Interval = new Immutable.Record({
     id: null,
     from: null,
@@ -33,6 +31,7 @@ export var Props = new Immutable.Record({
     onStartChange: null,
     onEndChange: null,
     onIntervalClick: null,
+    onIntervalTap: null,
     onIntervalDrag: null,
     onDragEnd: null,
     onLongPress: null,
@@ -66,6 +65,7 @@ export var TimeBarState = new Immutable.Record({
     onStartChange: noop,
     onEndChange: noop,
     onIntervalClick: noop,
+    onIntervalTap: noop,
     onIntervalDrag: noop,
     onDragEnd: noop,
     onLongPress: noop,
@@ -112,7 +112,8 @@ export function isDraggingAction(action) {
 // BAR TOUCH EVENT HANDLING
 
 export var FirstPressed = new Immutable.Record({
-    longPressTimeoutId: null
+    longPressTimeoutId: null,
+    offset: null
 });
 
 export var FirstReleased = new Immutable.Record({

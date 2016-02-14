@@ -1,4 +1,7 @@
 
+export const TERMINATE = "<TERMINATE>";
+export const PROPERTY_CHANGE = "<PROPERTY-CHANGE>";
+
 export const BAR_TOUCH_START = "<BAR-TOUCH-START-EVENT>";
 export const BAR_TOUCH_END = "<BAR-TOUCH-END-EVENT>";
 export const BAR_LONG_PRESS = "<BAR-LONG-PRESS-EVENT>";

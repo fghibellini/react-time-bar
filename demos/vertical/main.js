@@ -1,7 +1,6 @@
 
 require("!style!css!less!./style.less");
 
-
 var React = require("react");
 var _ = require("lodash");
 
@@ -56,6 +55,15 @@ function onIntervalClick(intervalId, e) {
     interval.className = interval.className === "highlighted" ? "" : "highlighted";
 
     loggedEvents.splice(0, 0, { type: `interval-click (${intervalId})` });
+    refresh();
+}
+
+function onIntervalTap(intervalId, e) {
+    var interval = _.find(intervals, i => i.id === intervalId);
+
+    interval.className = interval.className === "highlighted" ? "" : "highlighted";
+
+    loggedEvents.splice(0, 0, { type: `interval-tap (${intervalId})` });
     refresh();
 }
 
@@ -183,9 +191,10 @@ function refresh() {
                      onStartChange={updateStart}
                      onEndChange={updateEnd}
                      onIntervalClick={onIntervalClick}
+                     onIntervalTap={onIntervalTap}
                      onIntervalDrag={onIntervalDrag}
                      onIntervalNew={genNewInterval}
-                     onLongPress={onLongPress}
+                     onLongPress={TimeBar.CREATE_INTERVAL}
                      onDoubleLongPress={onDoubleLongPress}
                      onDoubleTap={onDoubleTap}
                      onTap={onTap}

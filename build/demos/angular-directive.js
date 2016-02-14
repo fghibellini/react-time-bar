@@ -41704,6 +41704,10 @@
 	var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
 	var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
 
+	var CREATE_INTERVAL = function CREATE_INTERVAL() {/* token function */};
+
+	exports.CREATE_INTERVAL = CREATE_INTERVAL;
+
 	function getTimeBarComponent(environmentArgs) {
 
 	    if (!environmentArgs) {
@@ -41722,12 +41726,16 @@
 
 	    return React.createClass({
 	        displayName: "TimeBar",
+	        statics: {
+	            CREATE_INTERVAL: CREATE_INTERVAL
+	        },
 	        propTypes: {
 	            max: React.PropTypes.number,
 	            width: React.PropTypes.number,
 	            onStartChange: React.PropTypes.func,
 	            onEndChange: React.PropTypes.func,
 	            onIntervalClick: React.PropTypes.func,
+	            onIntervalTap: React.PropTypes.func,
 	            onIntervalDrag: React.PropTypes.func,
 	            onDragEnd: React.PropTypes.func,
 	            onLongPress: React.PropTypes.func,
@@ -41755,6 +41763,7 @@
 	                onStartChange: _functionsUtils.noop,
 	                onEndChange: _functionsUtils.noop,
 	                onIntervalClick: _functionsUtils.noop,
+	                onIntervalTap: _functionsUtils.noop,
 	                onIntervalDrag: _functionsUtils.noop,
 	                onDragEnd: _functionsUtils.noop,
 	                onLongPress: _functionsUtils.noop,
@@ -41790,12 +41799,6 @@
 	                    var state = _this.my_state;
 	                    var inputObserver = _this.inputObserver;
 
-	                    console.log("TRANSITION:");
-	                    console.log("-----------");
-	                    //console.log("update: " + JSON.stringify(update));
-	                    console.log(update);
-	                    console.log("from: " + formatState(state));
-
 	                    if (_this.__deltaRunnging) {
 	                        console.error(Error(NESTED_DELTAS_ERROR));
 	                    }
@@ -41812,9 +41815,6 @@
 	                        }
 	                        _this.my_state = newState;
 	                        _this.replaceState(newState);
-	                        console.log("to: " + formatState(newState));
-	                    } else {
-	                        console.log("[not replacing state]");
 	                    }
 	                } catch (e) {
 	                    // Prevent unexpected errors to freeze the time bar.
@@ -41838,16 +41838,15 @@
 	        componentWillReceiveProps: function componentWillReceiveProps(newProps) {
 	            var inputObserver = this.inputObserver;
 
-	            var newPropUpdate = {
-	                type: "propchange", // TODO event symbol
+	            inputObserver.onNext({
+	                type: _events.PROPERTY_CHANGE,
 	                newProps: (0, _state2.propsToImmutable)(newProps)
-	            };
-	            inputObserver.onNext(newPropUpdate);
+	            });
 	        },
 	        componentWillUnmount: function componentWillUnmount() {
 	            var inputObserver = this.inputObserver;
 
-	            inputObserver.onNext(_state2.TERMINATION_MSG);
+	            inputObserver.onNext({ type: _events.TERMINATE });
 	        },
 	        render: function render() {
 	            var _this2 = this;
@@ -42027,10 +42026,23 @@
 	                        type = _events.BAR_TOUCH_END;break;
 	                }
 
+	                var barElement = React.findDOMNode(_this2);
+	                var boundingRect = barElement.getBoundingClientRect();
+
+	                var _ref3 = direction === 'horizontal' ? [touch.pageX, boundingRect.left + window.scrollX] : [touch.pageY, boundingRect.top + window.scrollY];
+
+	                var _ref32 = _slicedToArray(_ref3, 2);
+
+	                var page = _ref32[0];
+	                var bounding = _ref32[1];
+
+	                var offset = page - bounding;
+
 	                inputObserver.onNext({
 	                    type: type,
 	                    touchId: touch.identifier,
-	                    coords: { x: touch.clientX, y: touch.clientY }
+	                    coords: { x: touch.clientX, y: touch.clientY },
+	                    offset: offset
 	                });
 	            };
 
@@ -52617,9 +52629,6 @@
 
 	var Immutable = __webpack_require__(16);
 
-	var TERMINATION_MSG = {};
-
-	exports.TERMINATION_MSG = TERMINATION_MSG;
 	var Interval = new Immutable.Record({
 	    id: null,
 	    from: null,
@@ -52651,6 +52660,7 @@
 	    onStartChange: null,
 	    onEndChange: null,
 	    onIntervalClick: null,
+	    onIntervalTap: null,
 	    onIntervalDrag: null,
 	    onDragEnd: null,
 	    onLongPress: null,
@@ -52688,6 +52698,7 @@
 	    onStartChange: _functionsUtils.noop,
 	    onEndChange: _functionsUtils.noop,
 	    onIntervalClick: _functionsUtils.noop,
+	    onIntervalTap: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
 	    onDragEnd: _functionsUtils.noop,
 	    onLongPress: _functionsUtils.noop,
@@ -52739,7 +52750,8 @@
 	// BAR TOUCH EVENT HANDLING
 
 	var FirstPressed = new Immutable.Record({
-	    longPressTimeoutId: null
+	    longPressTimeoutId: null,
+	    offset: null
 	});
 
 	exports.FirstPressed = FirstPressed;
@@ -57697,7 +57709,6 @@
 
 	var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }; })();
 
-	exports.newInterval = newInterval;
 	exports.processTimeBarTouchEvent = processTimeBarTouchEvent;
 	exports.deltaFunction = deltaFunction;
 
@@ -57710,6 +57721,8 @@
 	var _o1map = __webpack_require__(19);
 
 	var _events = __webpack_require__(20);
+
+	var _component = __webpack_require__(11);
 
 	var stateExitClearTimeoutHooks = new _o1map.O1Map().set(_state.FirstPressed, function (state, input, nextState) {
 	    if (input.type !== _events.BAR_LONG_PRESS) clearTimeout(state.action.longPressTimeoutId);
@@ -57727,6 +57740,18 @@
 	            (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
 	        }
 	        capturedMouseEvents.pause();
+	    }
+	}).set(_state.TouchDraggingAction, function (state, input, nextState) {
+	    var _state$action2 = state.action;
+	    var intervalId = _state$action2.intervalId;
+	    var touchId = _state$action2.touchId;
+	    var movedSinceTouchStart = _state$action2.movedSinceTouchStart;
+	    var onDragEnd = state.onDragEnd;
+
+	    if (touchId === input.touchId) {
+	        if (movedSinceTouchStart) {
+	            onDragEnd(intervalId);
+	        }
 	    }
 	});
 
@@ -57752,17 +57777,6 @@
 	    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 	}
 
-	function newInterval(state, input) {
-	    /*
-	    var offset = e.client; // TODO compute
-	    var startTime = max * offset / width;
-	    var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
-	    if (bounds) {
-	    }
-	    // TODO onIntervalNew(bounds);
-	    */
-	}
-
 	function processTimeBarTouchEvent(state, input, stream) {
 	    var action = state.action;
 	    var onIntervalNew = state.onIntervalNew;
@@ -57770,6 +57784,11 @@
 	    var onLongPress = state.onLongPress;
 	    var onTap = state.onTap;
 	    var onDoubleLongPress = state.onDoubleLongPress;
+	    var onIntervalNew = state.onIntervalNew;
+	    var previewBoundsGenerator = state.previewBoundsGenerator;
+	    var max = state.max;
+	    var width = state.width;
+	    var intervals = state.intervals;
 	    var coords = input.coords;
 
 	    var newState = state;
@@ -57791,7 +57810,16 @@
 	        }
 	    } else if (action instanceof _state.FirstPressed && input.type === _events.BAR_LONG_PRESS) {
 	        newState = state.set("action", null);
-	        onLongPress();
+	        if (onLongPress === _component.CREATE_INTERVAL) {
+	            var offset = action.offset;
+	            var startTime = max * offset / width;
+	            var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
+	            if (bounds) {
+	                onIntervalNew(bounds);
+	            }
+	        } else {
+	            onLongPress();
+	        }
 	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_SINGLE_TAP) {
 	        newState = state.set("action", null);
 	        onTap();
@@ -57813,6 +57841,7 @@
 	        onDoubleLongPress();
 	    } else if (input.type === _events.BAR_TOUCH_START) {
 	        newState = state.set("action", new _state.FirstPressed({
+	            offset: input.offset,
 	            longPressTimeoutId: setTimeout(function () {
 	                stream.onNext({
 	                    type: _events.BAR_LONG_PRESS,
@@ -57859,12 +57888,12 @@
 	    var onStartChange = state.onStartChange;
 	    var onEndChange = state.onEndChange;
 	    var onIntervalDrag = state.onIntervalDrag;
-	    var _state$action2 = state.action;
-	    var intervalId = _state$action2.intervalId;
-	    var side = _state$action2.side;
-	    var timeBeforeDrag = _state$action2.timeBeforeDrag;
-	    var initialCoords = _state$action2.initialCoords;
-	    var movedSinceMouseDown = _state$action2.movedSinceMouseDown;
+	    var _state$action3 = state.action;
+	    var intervalId = _state$action3.intervalId;
+	    var side = _state$action3.side;
+	    var timeBeforeDrag = _state$action3.timeBeforeDrag;
+	    var initialCoords = _state$action3.initialCoords;
+	    var movedSinceMouseDown = _state$action3.movedSinceMouseDown;
 
 	    var _ref = direction == 'horizontal' ? [initialCoords.x, newCoords.clientX] : [initialCoords.y, newCoords.clientY];
 
@@ -57904,7 +57933,6 @@
 
 	    var newState = state;
 
-	    console.log("got to processIntervalMouseEvent!");
 	    if (input.type === _events.INTERVAL_MOUSE_DOWN) {
 	        var intervalId = input.intervalId;
 	        var side = input.side;
@@ -57921,7 +57949,6 @@
 	            capturedMouseEvents: env.capturedMouseEvents
 	        }));
 	    } else if (input.type === _events.GLOBAL_MOUSE_MOVE && action instanceof _state.MouseDraggingAction) {
-	        console.log("got to GLOBAL_MOUSE_MOVE!");
 	        newState = mouse_drag(state, input);
 	    } else if (input.type === _events.GLOBAL_MOUSE_UP && action instanceof _state.MouseDraggingAction) {
 	        var intervalId = action.intervalId;
@@ -57949,13 +57976,13 @@
 	    var onEndChange = state.onEndChange;
 	    var onIntervalDrag = state.onIntervalDrag;
 	    var touchMoveRadius = state.touchMoveRadius;
-	    var _state$action3 = state.action;
-	    var intervalId = _state$action3.intervalId;
-	    var side = _state$action3.side;
-	    var touchId = _state$action3.touchId;
-	    var timeBeforeDrag = _state$action3.timeBeforeDrag;
-	    var initialCoords = _state$action3.initialCoords;
-	    var movedSinceTouchStart = _state$action3.movedSinceTouchStart;
+	    var _state$action4 = state.action;
+	    var intervalId = _state$action4.intervalId;
+	    var side = _state$action4.side;
+	    var touchId = _state$action4.touchId;
+	    var timeBeforeDrag = _state$action4.timeBeforeDrag;
+	    var initialCoords = _state$action4.initialCoords;
+	    var movedSinceTouchStart = _state$action4.movedSinceTouchStart;
 
 	    if (touchEvent.touchId !== touchId) {
 	        // TODO unify where touchId is checked
@@ -57995,6 +58022,7 @@
 	function processIntervalTouchEvent(state, input, stream) {
 	    var action = state.action;
 	    var onIntervalClick = state.onIntervalClick;
+	    var onIntervalTap = state.onIntervalTap;
 	    var onDragEnd = state.onDragEnd;
 	    var onLongPress = state.onLongPress;
 
@@ -58033,16 +58061,17 @@
 	        if (touchId === input.touchId) {
 	            newState = state.set("action", null);
 	            if (!movedSinceTouchStart) {
-	                // TODO touchEnd when interrupted by other actions
-	                onIntervalClick(intervalId, null); // TODO separete on touchEnd and onTap events
+	                onIntervalTap(intervalId, null);
+	            } else {
+	                onDragEnd(intervalId);
 	            }
 	        }
 	    } else if (action instanceof _state.TouchDraggingAction && input.type === _events.INTERVAL_LONG_PRESS) {
-	            if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onLongPress !== _functionsUtils.noop) {
-	                newState = state.set("action", null);
-	                onLongPress(action.intervalId);
-	            }
+	        if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onLongPress !== _functionsUtils.noop) {
+	            newState = state.set("action", null);
+	            onLongPress(action.intervalId);
 	        }
+	    }
 
 	    return newState;
 	}
@@ -58055,10 +58084,10 @@
 
 	    var newState = state;
 
-	    if (input === _state.TERMINATION_MSG) {
+	    if (input.type === _events.TERMINATE) {
 	        newState = state.set("action", null);
 	        terminate();
-	    } else if (input.type === "propchange") {
+	    } else if (input.type === _events.PROPERTY_CHANGE) {
 	        var newProps = input.newProps;
 
 	        if ((0, _state.isDraggingAction)(action)) {
@@ -58081,6 +58110,12 @@
 	    } else {
 	        console.error("unexpected type of input; ignoring");
 	    }
+
+	    console.log("input:");
+	    console.log(input);
+	    console.log("new state:");
+	    console.log(newState.toJS());
+	    console.log("");
 
 	    return newState;
 	}
@@ -58162,6 +58197,11 @@
 	Object.defineProperty(exports, "__esModule", {
 	  value: true
 	});
+	var TERMINATE = "<TERMINATE>";
+	exports.TERMINATE = TERMINATE;
+	var PROPERTY_CHANGE = "<PROPERTY-CHANGE>";
+
+	exports.PROPERTY_CHANGE = PROPERTY_CHANGE;
 	var BAR_TOUCH_START = "<BAR-TOUCH-START-EVENT>";
 	exports.BAR_TOUCH_START = BAR_TOUCH_START;
 	var BAR_TOUCH_END = "<BAR-TOUCH-END-EVENT>";

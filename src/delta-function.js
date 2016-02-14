@@ -1,10 +1,10 @@
 
-import { TimeBarState, MouseDraggingAction, TouchDraggingAction, isDraggingAction, PreviewAction, TERMINATION_MSG, FirstPressed, FirstReleased, SecondPressed } from './state';
+import { TimeBarState, MouseDraggingAction, TouchDraggingAction, isDraggingAction, PreviewAction, FirstPressed, FirstReleased, SecondPressed } from './state';
 import { setCursorToWholeDocument, unsetCursorToWholeDocument } from './functions/global-cursor';
 import { getRemovedIds, noop } from './functions/utils';
 import { O1Map } from './o1map';
-import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS } from './events';
-
+import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS, PROPERTY_CHANGE, TERMINATE } from './events';
+import { CREATE_INTERVAL } from './component';
 
 export var stateExitClearTimeoutHooks = new O1Map()
     .set(FirstPressed, function(state, input, nextState) { if (input.type !== BAR_LONG_PRESS) clearTimeout(state.action.longPressTimeoutId); })
@@ -17,6 +17,14 @@ export var stateExitClearTimeoutHooks = new O1Map()
                 unsetCursorToWholeDocument(window.document);
             }
             capturedMouseEvents.pause();
+        }
+    })
+    .set(TouchDraggingAction, function(state, input, nextState) {
+        var { action: { intervalId, touchId, movedSinceTouchStart }, onDragEnd } = state;
+        if (touchId === input.touchId) {
+            if (movedSinceTouchStart) {
+                onDragEnd(intervalId);
+            }
         }
     });
 
@@ -41,19 +49,8 @@ function computeDistance(oldCoords, newCoords) {
     return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 }
 
-export function newInterval(state, input) {
-    /*
-    var offset = e.client; // TODO compute
-    var startTime = max * offset / width;
-    var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
-    if (bounds) {
-    }
-    // TODO onIntervalNew(bounds);
-    */
-}
-
 export function processTimeBarTouchEvent(state, input, stream) {
-    var { action, onIntervalNew, onDoubleTap, onLongPress, onTap, onDoubleLongPress } = state;
+    var { action, onIntervalNew, onDoubleTap, onLongPress, onTap, onDoubleLongPress, onIntervalNew, previewBoundsGenerator, max, width, intervals } = state;
     var { coords } = input;
 
     var newState = state;
@@ -75,7 +72,16 @@ export function processTimeBarTouchEvent(state, input, stream) {
         }
     } else if (action instanceof FirstPressed && input.type === BAR_LONG_PRESS) {
         newState = state.set("action", null);
-        onLongPress();
+        if (onLongPress === CREATE_INTERVAL) {
+            var offset = action.offset;
+            var startTime = max * offset / width;
+            var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
+            if (bounds) {
+                onIntervalNew(bounds);
+            }
+        } else {
+            onLongPress();
+        }
     } else if (action instanceof FirstReleased && input.type === BAR_SINGLE_TAP) {
         newState = state.set("action", null);
         onTap();
@@ -97,10 +103,11 @@ export function processTimeBarTouchEvent(state, input, stream) {
         onDoubleLongPress();
     } else if (input.type === BAR_TOUCH_START) {
         newState = state.set("action", new FirstPressed({
+            offset: input.offset,
             longPressTimeoutId: setTimeout(function() {
                 stream.onNext({
                     type: BAR_LONG_PRESS,
-                    touchId: input.touchId
+                    touchId: input.touchId,
                 });
             }, 600)
         }));
@@ -175,7 +182,6 @@ function processIntervalMouseEvent(state, input, env) {
     var { action, onIntervalClick, onDragEnd, onLongPress } = state;
     var newState = state;
 
-    console.log("got to processIntervalMouseEvent!");
     if (input.type === INTERVAL_MOUSE_DOWN) {
         var { intervalId, side, initialCoords, timeBeforeDrag } = input;
         env.capturedMouseEvents.resume();
@@ -188,7 +194,6 @@ function processIntervalMouseEvent(state, input, env) {
             capturedMouseEvents: env.capturedMouseEvents
         }));
     } else if (input.type === GLOBAL_MOUSE_MOVE && action instanceof MouseDraggingAction) {
-        console.log("got to GLOBAL_MOUSE_MOVE!");
         newState = mouse_drag(state, input);
     } else if (input.type === GLOBAL_MOUSE_UP && action instanceof MouseDraggingAction) {
         var { intervalId, movedSinceMouseDown, capturedMouseEvents } = action;
@@ -246,7 +251,7 @@ function touch_drag(state, touchEvent) {
 }
 
 function processIntervalTouchEvent(state, input, stream) {
-    var { action, onIntervalClick, onDragEnd, onLongPress } = state;
+    var { action, onIntervalClick, onIntervalTap, onDragEnd, onLongPress } = state;
     var newState = state;
 
     if (input.type === INTERVAL_TOUCH_START) {
@@ -274,8 +279,9 @@ function processIntervalTouchEvent(state, input, stream) {
         if (touchId === input.touchId) {
             newState = state.set("action", null);
             if (!movedSinceTouchStart) {
-                // TODO touchEnd when interrupted by other actions
-                onIntervalClick(intervalId, null); // TODO separete on touchEnd and onTap events
+                onIntervalTap(intervalId, null);
+            } else {
+                onDragEnd(intervalId);
             }
         }
     } else if (action instanceof TouchDraggingAction && input.type === INTERVAL_LONG_PRESS) {
@@ -293,10 +299,10 @@ export function deltaFunction(state, input, stream, environment, terminate) {
 
     var newState = state;
 
-    if (input === TERMINATION_MSG) {
+    if (input.type === TERMINATE) {
         newState = state.set("action", null);
         terminate();
-    } else if (input.type === "propchange") {
+    } else if (input.type === PROPERTY_CHANGE) {
         var { newProps } = input;
         if (isDraggingAction(action)) {
             var { intervalId } = action;
@@ -317,6 +323,12 @@ export function deltaFunction(state, input, stream, environment, terminate) {
     } else {
         console.error("unexpected type of input; ignoring");
     }
+
+    console.log("input:");
+    console.log(input);
+    console.log("new state:");
+    console.log(newState.toJS());
+    console.log("");
 
     return newState;
 }

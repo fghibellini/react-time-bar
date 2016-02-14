@@ -5,15 +5,17 @@ var rx = require("rx");
 var React = require("react");
 
 import { mergeInputs, noop } from './functions/utils';
-import { TimeBarState, PreviewAction, TouchDraggingAction, intervalsToImmutable, propsToImmutable, TERMINATION_MSG  } from './state';
+import { TimeBarState, PreviewAction, TouchDraggingAction, intervalsToImmutable, propsToImmutable } from './state';
 import { deltaFunction, stateExitClearTimeoutHooks } from './delta-function';
 import { captureMouseEventsOnDomNode } from './mouse-event-capturing';
 import { defaultPreviewBoundsGenerator } from './functions/common';
-import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS } from './events';
+import { BAR_TOUCH_START, BAR_TOUCH_END, BAR_LONG_PRESS, BAR_SINGLE_TAP, BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP, INTERVAL_TOUCH_START, INTERVAL_TOUCH_MOVE, INTERVAL_TOUCH_END, INTERVAL_LONG_PRESS, PROPERTY_CHANGE, TERMINATE } from './events';
 
 var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
 var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
 var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
+
+export const CREATE_INTERVAL = function() { /* token function */ };
 
 export function getTimeBarComponent(environmentArgs) {
 
@@ -33,12 +35,16 @@ export function getTimeBarComponent(environmentArgs) {
 
     return React.createClass({
         displayName: "TimeBar",
+        statics: {
+            CREATE_INTERVAL: CREATE_INTERVAL
+        },
         propTypes: {
             max: React.PropTypes.number,
             width: React.PropTypes.number,
             onStartChange: React.PropTypes.func,
             onEndChange: React.PropTypes.func,
             onIntervalClick: React.PropTypes.func,
+            onIntervalTap: React.PropTypes.func,
             onIntervalDrag: React.PropTypes.func,
             onDragEnd: React.PropTypes.func,
             onLongPress: React.PropTypes.func,
@@ -69,6 +75,7 @@ export function getTimeBarComponent(environmentArgs) {
                 onStartChange: noop,
                 onEndChange: noop,
                 onIntervalClick: noop,
+                onIntervalTap: noop,
                 onIntervalDrag: noop,
                 onDragEnd: noop,
                 onLongPress: noop,
@@ -99,12 +106,6 @@ export function getTimeBarComponent(environmentArgs) {
                     /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
                     var { my_state: state, inputObserver } = this;
 
-                    console.log("TRANSITION:");
-                    console.log("-----------");
-                    //console.log("update: " + JSON.stringify(update));
-                    console.log(update);
-                    console.log("from: " + formatState(state));
-
                     if (this.__deltaRunnging) { console.error(Error(NESTED_DELTAS_ERROR)); }
                     this.__deltaRunnging = true;
                     var newState = deltaFunction(state, update, inputObserver, environment, SM_Subscription.dispose.bind(SM_Subscription));
@@ -119,9 +120,6 @@ export function getTimeBarComponent(environmentArgs) {
                         }
                         this.my_state = newState;
                         this.replaceState(newState);
-                        console.log("to: " + formatState(newState));
-                    } else {
-                        console.log("[not replacing state]");
                     }
                 } catch (e) {
                     // Prevent unexpected errors to freeze the time bar.
@@ -145,15 +143,14 @@ export function getTimeBarComponent(environmentArgs) {
         },
         componentWillReceiveProps: function(newProps) {
             var { inputObserver } = this;
-            var newPropUpdate = {
-                type: "propchange", // TODO event symbol
+            inputObserver.onNext({
+                type: PROPERTY_CHANGE,
                 newProps: propsToImmutable(newProps)
-            };
-            inputObserver.onNext(newPropUpdate);
+            });
         },
         componentWillUnmount: function() {
             var { inputObserver } = this;
-            inputObserver.onNext(TERMINATION_MSG);
+            inputObserver.onNext({ type: TERMINATE });
         },
         render: function() {
             var {
@@ -311,10 +308,16 @@ export function getTimeBarComponent(environmentArgs) {
                     case "touchend": type = BAR_TOUCH_END; break;
                 }
 
+                var barElement = React.findDOMNode(this);
+                var boundingRect = barElement.getBoundingClientRect();
+                var [page, bounding] = direction === 'horizontal' ? [touch.pageX, boundingRect.left + window.scrollX] : [touch.pageY, boundingRect.top + window.scrollY];
+                var offset = page - bounding;
+
                 inputObserver.onNext({
                     type: type,
                     touchId: touch.identifier,
-                    coords: { x: touch.clientX, y: touch.clientY }
+                    coords: { x: touch.clientX, y: touch.clientY },
+                    offset: offset
                 });
             };
 
