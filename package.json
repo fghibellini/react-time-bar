@@ -1,14 +1,14 @@
 {
   "name": "react-time-bar",
-  "version": "1.0.2",
+  "version": "2.0.3",
   "description": "React TimeBar component.",
   "repository": "fghibellini/react-time-bar",
   "main": "dist/component.commonjs.js",
   "dependencies": {
     "angular": "^1.4.5",
     "immutable": "^3.7.4",
-    "react": "^0.13.3",
-    "rx": "^3.1.1",
+    "react": ">0.13.3 <0.15.0",
+    "rx": "<4.0.0",
     "rx-dom": "^6.0.0"
   },
   "devDependencies": {

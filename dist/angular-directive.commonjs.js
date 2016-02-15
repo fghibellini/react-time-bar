@@ -48,8 +48,8 @@
 
 	var _component = __webpack_require__(1);
 
-	var React = __webpack_require__(11);
-	var angular = __webpack_require__(16);
+	var React = __webpack_require__(13);
+	var angular = __webpack_require__(18);
 
 	function bindToScope(scope, fn) {
 	    return function () {
@@ -136,6 +136,8 @@
 	    value: true
 	});
 
+	var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i["return"]) _i["return"](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError("Invalid attempt to destructure non-iterable instance"); } }; })();
+
 	var _extends = Object.assign || function (target) { for (var i = 1; i < arguments.length; i++) { var source = arguments[i]; for (var key in source) { if (Object.prototype.hasOwnProperty.call(source, key)) { target[key] = source[key]; } } } return target; };
 
 	exports.getTimeBarComponent = getTimeBarComponent;
@@ -146,20 +148,24 @@
 
 	var _deltaFunction = __webpack_require__(6);
 
-	var _mouseEventCapturing = __webpack_require__(8);
+	var _mouseEventCapturing = __webpack_require__(10);
 
-	var _functionsCommon = __webpack_require__(10);
+	var _functionsCommon = __webpack_require__(12);
 
-	__webpack_require__(12);
+	var _events = __webpack_require__(9);
+
+	__webpack_require__(14);
 
 	var rx = __webpack_require__(3);
-	var React = __webpack_require__(11);
-
-	var noop = rx.helpers.noop;
+	var React = __webpack_require__(13);
 
 	var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
 	var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
 	var NO_ENVIRONMENT_ERROR = "The TimeBar component requires and environment object!";
+
+	var CREATE_INTERVAL = function CREATE_INTERVAL() {/* token function */};
+
+	exports.CREATE_INTERVAL = CREATE_INTERVAL;
 
 	function getTimeBarComponent(environmentArgs) {
 
@@ -179,14 +185,25 @@
 
 	    return React.createClass({
 	        displayName: "TimeBar",
+	        statics: {
+	            CREATE_INTERVAL: CREATE_INTERVAL
+	        },
 	        propTypes: {
 	            max: React.PropTypes.number,
 	            width: React.PropTypes.number,
 	            onStartChange: React.PropTypes.func,
 	            onEndChange: React.PropTypes.func,
 	            onIntervalClick: React.PropTypes.func,
+	            onIntervalTap: React.PropTypes.func,
+	            onIntervalLongPress: React.PropTypes.func,
 	            onIntervalDrag: React.PropTypes.func,
 	            onDragEnd: React.PropTypes.func,
+	            onLongPress: React.PropTypes.func,
+	            onDoubleLongPress: React.PropTypes.func,
+	            onTap: React.PropTypes.func,
+	            longPressInterval: React.PropTypes.number,
+	            mouseMoveRadius: React.PropTypes.number,
+	            touchMoveRadius: React.PropTypes.number,
 	            intervals: React.PropTypes.arrayOf(React.PropTypes.shape({
 	                id: React.PropTypes.oneOfType([React.PropTypes.number, React.PropTypes.string]),
 	                from: React.PropTypes.number,
@@ -195,23 +212,35 @@
 	            })),
 	            intervalContentGenerator: React.PropTypes.func,
 	            previewBoundsGenerator: React.PropTypes.func,
-	            onIntervalNew: React.PropTypes.func
+	            onDoubleTap: React.PropTypes.func,
+	            onIntervalNew: React.PropTypes.func,
+	            direction: React.PropTypes.string
 	        },
 	        getDefaultProps: function getDefaultProps() {
 	            return {
 	                max: 1440,
 	                width: 800,
-	                onStartChange: noop,
-	                onEndChange: noop,
-	                onIntervalClick: noop,
-	                onIntervalDrag: noop,
-	                onDragEnd: noop,
+	                onStartChange: _functionsUtils.noop,
+	                onEndChange: _functionsUtils.noop,
+	                onIntervalClick: _functionsUtils.noop,
+	                onIntervalTap: _functionsUtils.noop,
+	                onIntervalLongPress: _functionsUtils.noop,
+	                onIntervalDrag: _functionsUtils.noop,
+	                onDragEnd: _functionsUtils.noop,
+	                onLongPress: _functionsUtils.noop,
+	                onDoubleLongPress: _functionsUtils.noop,
+	                onTap: _functionsUtils.noop,
+	                longPressInterval: 800,
+	                mouseMoveRadius: 10,
+	                touchMoveRadius: 10,
 	                intervals: [],
 	                intervalContentGenerator: function intervalContentGenerator() {
 	                    return null;
 	                },
 	                previewBoundsGenerator: _functionsCommon.defaultPreviewBoundsGenerator,
-	                onIntervalNew: noop
+	                onDoubleTap: _functionsUtils.noop,
+	                onIntervalNew: _functionsUtils.noop,
+	                direction: "horizontal"
 	            };
 	        },
 	        getAllInputs: function getAllInputs() {
@@ -222,10 +251,13 @@
 	        setupStateMachine: function setupStateMachine(allInputs, deltaFunction) {
 	            var _this = this;
 
+	            function formatState(s) {
+	                //return JSON.stringify(s.action);
+	            }
 	            var SM_Subscription = allInputs.subscribe(function (update) {
 	                try {
 	                    /* ONLY THIS FUNCTION IS ALLOWED TO CHANGE THE STATE DIRECTLY */
-	                    var state = _this.state;
+	                    var state = _this.my_state;
 	                    var inputObserver = _this.inputObserver;
 
 	                    if (_this.__deltaRunnging) {
@@ -236,6 +268,13 @@
 	                    _this.__deltaRunnging = false;
 
 	                    if (newState !== state) {
+	                        if (state.action && (!newState.action || newState.action.constructor !== state.action.constructor)) {
+	                            var exitHook = state.action && state.action.constructor && _deltaFunction.stateExitClearTimeoutHooks.get(state.action.constructor);
+	                            if (exitHook) {
+	                                exitHook(state, update, newState);
+	                            }
+	                        }
+	                        _this.my_state = newState;
 	                        _this.replaceState(newState);
 	                    }
 	                } catch (e) {
@@ -253,23 +292,22 @@
 	            var allInputs = this.getAllInputs();
 	            this.setupStateMachine(allInputs, _deltaFunction.deltaFunction);
 
-	            return new _state2.TimeBarState(_extends({
+	            return this.my_state = new _state2.TimeBarState(_extends({
 	                action: null
 	            }, initialProps.toObject()));
 	        },
 	        componentWillReceiveProps: function componentWillReceiveProps(newProps) {
 	            var inputObserver = this.inputObserver;
 
-	            var newPropUpdate = {
-	                type: "propchange",
+	            inputObserver.onNext({
+	                type: _events.PROPERTY_CHANGE,
 	                newProps: (0, _state2.propsToImmutable)(newProps)
-	            };
-	            inputObserver.onNext(newPropUpdate);
+	            });
 	        },
 	        componentWillUnmount: function componentWillUnmount() {
 	            var inputObserver = this.inputObserver;
 
-	            inputObserver.onNext(_state2.TERMINATION_MSG);
+	            inputObserver.onNext({ type: _events.TERMINATE });
 	        },
 	        render: function render() {
 	            var _this2 = this;
@@ -279,6 +317,7 @@
 	            var max = _state.max;
 	            var width = _state.width;
 	            var intervals = _state.intervals;
+	            var direction = _state.direction;
 	            var intervalContentGenerator = _state.intervalContentGenerator;
 	            var previewBoundsGenerator = _state.previewBoundsGenerator;
 	            var onIntervalNew = _state.onIntervalNew;
@@ -293,7 +332,7 @@
 	                var mouseDownHandlerGen = function mouseDownHandlerGen(side, timeBeforeDrag) {
 	                    return function (e) {
 	                        inputObserver.onNext({
-	                            type: "mousedown",
+	                            type: _events.INTERVAL_MOUSE_DOWN,
 	                            intervalId: interval.id,
 	                            side: side,
 	                            initialCoords: { x: e.clientX, y: e.clientY },
@@ -304,29 +343,80 @@
 	                    };
 	                };
 
+	                var touchStartHandlerGen = function touchStartHandlerGen(side, timeBeforeDrag) {
+	                    return function (e) {
+	                        e.preventDefault();
+	                        e.stopPropagation();
+	                        var touch = e.changedTouches[0];
+	                        inputObserver.onNext({
+	                            type: _events.INTERVAL_TOUCH_START,
+	                            intervalId: interval.id,
+	                            side: side,
+	                            touchId: touch.identifier,
+	                            initialCoords: { x: touch.clientX, y: touch.clientY },
+	                            timeBeforeDrag: timeBeforeDrag
+	                        });
+	                    };
+	                };
+
+	                var touchMove = function touchMove(e) {
+	                    e.preventDefault();
+	                    e.stopPropagation();
+	                    var touch = e.changedTouches[0];
+	                    inputObserver.onNext({
+	                        type: _events.INTERVAL_TOUCH_MOVE,
+	                        touchId: touch.identifier,
+	                        clientX: touch.clientX,
+	                        clientY: touch.clientY
+	                    });
+	                };
+
+	                var touchEnd = function touchEnd(e) {
+	                    var touch = e.changedTouches[0];
+	                    inputObserver.onNext({
+	                        type: _events.INTERVAL_TOUCH_END,
+	                        touchId: touch.identifier,
+	                        clientX: touch.clientX,
+	                        clientY: touch.clientY
+	                    });
+	                    e.preventDefault();
+	                    e.stopPropagation();
+	                };
+
 	                var leftHandleDragStart = mouseDownHandlerGen("left", interval.from);
 	                var rightHandleDragStart = mouseDownHandlerGen("right", interval.to);
 	                var intervalDragStart = mouseDownHandlerGen("whole", interval.from);
+
+	                var leftHandleTouchDragStart = touchStartHandlerGen("left", interval.from);
+	                var rightHandleTouchDragStart = touchStartHandlerGen("right", interval.to);
+	                var intervalTouchDragStart = touchStartHandlerGen("whole", interval.from);
+
+	                var style = direction === "horizontal" ? { left: start, width: end - start } : { top: start, height: end - start };
 
 	                return React.createElement(
 	                    "div",
 	                    { className: ["interval", interval.className].join(" "),
 	                        key: interval.id,
 	                        onMouseDown: intervalDragStart,
-	                        style: { left: start, width: end - start } },
+	                        onTouchStart: intervalTouchDragStart,
+	                        onTouchEnd: touchEnd,
+	                        onTouchMove: touchMove,
+	                        style: style },
 	                    React.createElement("div", { className: "interval-handle interval-handle-left",
-	                        onMouseDown: leftHandleDragStart }),
+	                        onMouseDown: leftHandleDragStart,
+	                        onTouchStart: leftHandleTouchDragStart }),
 	                    React.createElement("div", { className: "interval-handle interval-handle-right",
-	                        onMouseDown: rightHandleDragStart }),
+	                        onMouseDown: rightHandleDragStart,
+	                        onTouchStart: rightHandleTouchDragStart }),
 	                    intervalContentGenerator(interval)
 	                );
 	            });
 
 	            // THE PREVIEW OF A NEW INERVAL
 
-	            var intervalPreview = !(action && action instanceof _state2.PreviewAction) ? null : (function () {
-	                var x = action.x;
-	                var startTime = max * x / width;
+	            var intervalPreview = !(action instanceof _state2.PreviewAction) ? null : (function () {
+	                var offset = action.offset;
+	                var startTime = max * offset / width;
 	                var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
 
 	                var previewClick = function previewClick(e) {
@@ -339,10 +429,11 @@
 	                } else {
 	                    var start = width * bounds.from / max;
 	                    var end = width * bounds.to / max;
+	                    var style = direction === "horizontal" ? { left: start, width: end - start } : { top: start, height: end - start };
 	                    return React.createElement(
 	                        "div",
 	                        { className: "new-interval",
-	                            style: { left: start, width: end - start },
+	                            style: style,
 	                            onClick: previewClick },
 	                        "+"
 	                    );
@@ -355,31 +446,75 @@
 	                var barElement = React.findDOMNode(_this2);
 	                if (e.target === barElement || e.target.className === "new-interval") {
 	                    var boundingRect = barElement.getBoundingClientRect();
-	                    var x = e.pageX - boundingRect.left;
+
+	                    var _ref = direction === 'horizontal' ? [e.pageX, boundingRect.left + window.scrollX] : [e.pageY, boundingRect.top + window.scrollY];
+
+	                    var _ref2 = _slicedToArray(_ref, 2);
+
+	                    var page = _ref2[0];
+	                    var bounding = _ref2[1];
+
+	                    var offset = page - bounding;
 
 	                    inputObserver.onNext({
-	                        type: "bar-mousemove",
-	                        x: x
+	                        type: _events.BAR_MOUSE_MOVE,
+	                        offset: offset
 	                    });
 	                } else {
 	                    inputObserver.onNext({
-	                        type: "bar-mouseleave"
+	                        type: _events.BAR_MOUSE_LEAVE
 	                    });
 	                }
 	            };
 
 	            var barMouseLeave = function barMouseLeave(e) {
 	                inputObserver.onNext({
-	                    type: "bar-mouseleave"
+	                    type: _events.BAR_MOUSE_LEAVE
+	                });
+	            };
+
+	            var touchHandler = function touchHandler(e) {
+	                e.preventDefault();
+	                e.stopPropagation();
+
+	                var touch = e.changedTouches[0];
+
+	                var type;
+	                switch (e.type) {
+	                    case "touchstart":
+	                        type = _events.BAR_TOUCH_START;break;
+	                    case "touchend":
+	                        type = _events.BAR_TOUCH_END;break;
+	                }
+
+	                var barElement = React.findDOMNode(_this2);
+	                var boundingRect = barElement.getBoundingClientRect();
+
+	                var _ref3 = direction === 'horizontal' ? [touch.pageX, boundingRect.left + window.scrollX] : [touch.pageY, boundingRect.top + window.scrollY];
+
+	                var _ref32 = _slicedToArray(_ref3, 2);
+
+	                var page = _ref32[0];
+	                var bounding = _ref32[1];
+
+	                var offset = page - bounding;
+
+	                inputObserver.onNext({
+	                    type: type,
+	                    touchId: touch.identifier,
+	                    coords: { x: touch.clientX, y: touch.clientY },
+	                    offset: offset
 	                });
 	            };
 
 	            return React.createElement(
 	                "div",
-	                { className: "time-bar",
-	                    style: { width: width },
+	                { className: ["time-bar", direction].join(" "),
+	                    style: direction === "horizontal" ? { width: width } : { height: width },
 	                    onMouseMove: barMouseMove,
-	                    onMouseLeave: barMouseLeave },
+	                    onMouseLeave: barMouseLeave,
+	                    onTouchStart: touchHandler,
+	                    onTouchEnd: touchHandler },
 	                intervalPreview,
 	                mappedIntervals
 	            );
@@ -449,6 +584,7 @@
 
 	exports.intervalsToImmutable = intervalsToImmutable;
 	exports.propsToImmutable = propsToImmutable;
+	exports.isDraggingAction = isDraggingAction;
 
 	function _objectWithoutProperties(obj, keys) { var target = {}; for (var i in obj) { if (keys.indexOf(i) >= 0) continue; if (!Object.prototype.hasOwnProperty.call(obj, i)) continue; target[i] = obj[i]; } return target; }
 
@@ -456,9 +592,6 @@
 
 	var Immutable = __webpack_require__(5);
 
-	var TERMINATION_MSG = {};
-
-	exports.TERMINATION_MSG = TERMINATION_MSG;
 	var Interval = new Immutable.Record({
 	    id: null,
 	    from: null,
@@ -490,12 +623,22 @@
 	    onStartChange: null,
 	    onEndChange: null,
 	    onIntervalClick: null,
+	    onIntervalTap: null,
+	    onIntervalLongPress: null,
 	    onIntervalDrag: null,
 	    onDragEnd: null,
+	    onLongPress: null,
+	    onDoubleLongPress: null,
+	    onTap: null,
+	    longPressInterval: 300,
+	    mouseMoveRadius: 10,
+	    touchMoveRadius: 10,
 	    intervals: new Immutable.List([]),
 	    intervalContentGenerator: null,
 	    previewBoundsGenerator: null,
-	    onIntervalNew: null
+	    onDoubleTap: null,
+	    onIntervalNew: null,
+	    direction: 'horizontal'
 	});
 
 	exports.Props = Props;
@@ -515,31 +658,77 @@
 	    // the following are digested props
 	    max: 1440,
 	    width: 400,
+	    direction: 'horizontal',
 	    onStartChange: _functionsUtils.noop,
 	    onEndChange: _functionsUtils.noop,
 	    onIntervalClick: _functionsUtils.noop,
+	    onIntervalTap: _functionsUtils.noop,
+	    onIntervalLongPress: _functionsUtils.noop,
 	    onIntervalDrag: _functionsUtils.noop,
 	    onDragEnd: _functionsUtils.noop,
+	    onLongPress: _functionsUtils.noop,
+	    onDoubleLongPress: _functionsUtils.noop,
+	    onTap: _functionsUtils.noop,
+	    longPressInterval: 300,
+	    mouseMoveRadius: 2,
+	    touchMoveRadius: 2,
 	    intervals: null,
 	    intervalContentGenerator: _functionsUtils.noop,
 	    previewBoundsGenerator: _functionsUtils.noop,
+	    onDoubleTap: _functionsUtils.noop,
 	    onIntervalNew: _functionsUtils.noop
 	});
 
 	exports.TimeBarState = TimeBarState;
 	var PreviewAction = new Immutable.Record({
-	    x: null
+	    offset: null
 	});
 
 	exports.PreviewAction = PreviewAction;
-	var DraggingAction = new Immutable.Record({
+	var MouseDraggingAction = new Immutable.Record({
 	    intervalId: null, // the id of the dragged interval
 	    side: "both", // one of: "left", "right", "both"
 	    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
 	    timeBeforeDrag: null, // the value of the property modified by the drag before the drag started
-	    movedSinceMouseDown: false // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+	    movedSinceMouseDown: false, // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+	    capturedMouseEvents: null
 	});
-	exports.DraggingAction = DraggingAction;
+
+	exports.MouseDraggingAction = MouseDraggingAction;
+	var TouchDraggingAction = new Immutable.Record({
+	    intervalId: null, // the id of the dragged interval
+	    side: "both", // one of: "left", "right", "both"
+	    touchId: null,
+	    longPressTimeoutId: null, // return value of setTimeout
+	    t0: null, // date object with time of touchstart
+	    initialCoords: new Coordinates(), // the coordinates of the mousedown that initiated the drag
+	    timeBeforeDrag: null, // the value of the property modified by the drag before the drag started
+	    movedSinceTouchStart: false // a drag starts when the use moves the mouse after a mousedown otherwise it's a click
+	});
+
+	exports.TouchDraggingAction = TouchDraggingAction;
+
+	function isDraggingAction(action) {
+	    return action instanceof MouseDraggingAction || action instanceof TouchDraggingAction;
+	}
+
+	// BAR TOUCH EVENT HANDLING
+
+	var FirstPressed = new Immutable.Record({
+	    longPressTimeoutId: null,
+	    offset: null
+	});
+
+	exports.FirstPressed = FirstPressed;
+	var FirstReleased = new Immutable.Record({
+	    singleTapTimeoutId: null
+	});
+
+	exports.FirstReleased = FirstReleased;
+	var SecondPressed = new Immutable.Record({
+	    longPressTimeoutId: null
+	});
+	exports.SecondPressed = SecondPressed;
 
 /***/ },
 /* 5 */
@@ -556,6 +745,10 @@
 	Object.defineProperty(exports, '__esModule', {
 	    value: true
 	});
+
+	var _slicedToArray = (function () { function sliceIterator(arr, i) { var _arr = []; var _n = true; var _d = false; var _e = undefined; try { for (var _i = arr[Symbol.iterator](), _s; !(_n = (_s = _i.next()).done); _n = true) { _arr.push(_s.value); if (i && _arr.length === i) break; } } catch (err) { _d = true; _e = err; } finally { try { if (!_n && _i['return']) _i['return'](); } finally { if (_d) throw _e; } } return _arr; } return function (arr, i) { if (Array.isArray(arr)) { return arr; } else if (Symbol.iterator in Object(arr)) { return sliceIterator(arr, i); } else { throw new TypeError('Invalid attempt to destructure non-iterable instance'); } }; })();
+
+	exports.processTimeBarTouchEvent = processTimeBarTouchEvent;
 	exports.deltaFunction = deltaFunction;
 
 	var _state = __webpack_require__(4);
@@ -564,31 +757,187 @@
 
 	var _functionsUtils = __webpack_require__(2);
 
-	function dragStart(state, intervalId, side, initialCoords, timeBeforeDrag) {
-	    var newState = state.set("action", new _state.DraggingAction({
-	        intervalId: intervalId,
-	        side: side,
-	        initialCoords: initialCoords,
-	        timeBeforeDrag: timeBeforeDrag,
-	        movedSinceMouseDown: false
-	    }));
+	var _o1map = __webpack_require__(8);
+
+	var _events = __webpack_require__(9);
+
+	var _component = __webpack_require__(1);
+
+	var stateExitClearTimeoutHooks = new _o1map.O1Map().set(_state.FirstPressed, function (state, input, nextState) {
+	    if (input.type !== _events.BAR_LONG_PRESS) clearTimeout(state.action.longPressTimeoutId);
+	}).set(_state.FirstReleased, function (state, input, nextState) {
+	    if (input.type !== _events.BAR_SINGLE_TAP) clearTimeout(state.action.singleTapTimeoutId);
+	}).set(_state.SecondPressed, function (state, input, nextState) {
+	    if (input.type !== _events.BAR_LONG_PRESS) clearTimeout(state.action.longPressTimeoutId);
+	}).set(_state.MouseDraggingAction, function (state, input, nextState) {
+	    var _state$action = state.action;
+	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
+	    var capturedMouseEvents = _state$action.capturedMouseEvents;
+	    var longPressTimeoutId = _state$action.longPressTimeoutId;
+
+	    if (input.type !== _events.INTERVAL_LONG_PRESS) {
+	        clearTimeout(longPressTimeoutId);
+	    }
+	    if (input.type !== _events.GLOBAL_MOUSE_UP) {
+	        if (movedSinceMouseDown) {
+	            (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
+	        }
+	        capturedMouseEvents.pause();
+	    }
+	}).set(_state.TouchDraggingAction, function (state, input, nextState) {
+	    var _state$action2 = state.action;
+	    var intervalId = _state$action2.intervalId;
+	    var touchId = _state$action2.touchId;
+	    var movedSinceTouchStart = _state$action2.movedSinceTouchStart;
+	    var longPressTimeoutId = _state$action2.longPressTimeoutId;
+	    var onDragEnd = state.onDragEnd;
+
+	    if (input.type !== _events.INTERVAL_LONG_PRESS) {
+	        clearTimeout(longPressTimeoutId);
+	    }
+	    if (touchId === input.touchId) {
+	        if (movedSinceTouchStart) {
+	            onDragEnd(intervalId);
+	        }
+	    }
+	});
+
+	exports.stateExitClearTimeoutHooks = stateExitClearTimeoutHooks;
+	function getCursorName(direction, side) {
+	    return ({
+	        horizontal: {
+	            left: "w-resize",
+	            right: "e-resize",
+	            whole: "ew-resize"
+	        },
+	        vertical: {
+	            left: "n-resize",
+	            right: "s-resize",
+	            whole: "ns-resize"
+	        }
+	    })[direction][side];
+	}
+
+	function computeDistance(oldCoords, newCoords) {
+	    var deltaX = oldCoords.x - newCoords.clientX;
+	    var deltaY = oldCoords.y - newCoords.clientY;
+	    return Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+	}
+
+	function processTimeBarTouchEvent(state, input, stream) {
+	    var action = state.action;
+	    var onIntervalNew = state.onIntervalNew;
+	    var onDoubleTap = state.onDoubleTap;
+	    var onLongPress = state.onLongPress;
+	    var onTap = state.onTap;
+	    var onDoubleLongPress = state.onDoubleLongPress;
+	    var onIntervalNew = state.onIntervalNew;
+	    var previewBoundsGenerator = state.previewBoundsGenerator;
+	    var max = state.max;
+	    var width = state.width;
+	    var intervals = state.intervals;
+	    var coords = input.coords;
+
+	    var newState = state;
+
+	    if (action instanceof _state.FirstPressed && input.type === _events.BAR_TOUCH_END) {
+	        if (onDoubleTap === _functionsUtils.noop) {
+	            newState = state.set("action", null);
+	            onTap();
+	        } else {
+	            newState = state.set("action", new _state.FirstReleased({
+	                singleTapTimeoutId: setTimeout(function () {
+	                    // single-tap timeout
+	                    stream.onNext({
+	                        type: _events.BAR_SINGLE_TAP,
+	                        touchId: input.touchId
+	                    });
+	                }, 300)
+	            }));
+	        }
+	    } else if (action instanceof _state.FirstPressed && input.type === _events.BAR_LONG_PRESS) {
+	        newState = state.set("action", null);
+	        if (onLongPress === _component.CREATE_INTERVAL) {
+	            var offset = action.offset;
+	            var startTime = max * offset / width;
+	            var bounds = previewBoundsGenerator(startTime, max, intervals.toJS());
+	            if (bounds) {
+	                onIntervalNew(bounds);
+	            }
+	        } else {
+	            onLongPress();
+	        }
+	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_SINGLE_TAP) {
+	        newState = state.set("action", null);
+	        onTap();
+	    } else if (action instanceof _state.FirstReleased && input.type === _events.BAR_TOUCH_START) {
+	        newState = state.set("action", new _state.SecondPressed({
+	            longPressTimeoutId: setTimeout(function () {
+	                // longpress
+	                stream.onNext({
+	                    type: _events.BAR_LONG_PRESS,
+	                    touchId: input.touchId
+	                });
+	            }, 600)
+	        }));
+	    } else if (action instanceof _state.SecondPressed && input.type === _events.BAR_TOUCH_END) {
+	        newState = state.set("action", null);
+	        onDoubleTap();
+	    } else if (action instanceof _state.SecondPressed && input.type === _events.BAR_LONG_PRESS) {
+	        newState = state.set("action", null);
+	        onDoubleLongPress();
+	    } else if (input.type === _events.BAR_TOUCH_START) {
+	        newState = state.set("action", new _state.FirstPressed({
+	            offset: input.offset,
+	            longPressTimeoutId: setTimeout(function () {
+	                stream.onNext({
+	                    type: _events.BAR_LONG_PRESS,
+	                    touchId: input.touchId
+	                });
+	            }, 600)
+	        }));
+	    } else {
+	        console.error("Unexpected state-input combination!");
+	        console.error(state.action ? state.action.toJS() : "<no action>");
+	        console.error(input);
+	    }
 	    return newState;
 	}
 
-	function drag(state, newCoords) {
+	function processPreviewEvent(state, input) {
+	    var newState = state;
+
+	    if (input.type === _events.BAR_MOUSE_MOVE) {
+	        newState = state.set("action", new _state.PreviewAction({ offset: input.offset }));
+	    } else if (state.action instanceof _state.PreviewAction && input.type === _events.BAR_MOUSE_LEAVE) {
+	        newState = state.set("action", null);
+	    }
+
+	    return newState;
+	}
+
+	function mouse_drag(state, newCoords) {
 	    var max = state.max;
 	    var width = state.width;
+	    var direction = state.direction;
 	    var onStartChange = state.onStartChange;
 	    var onEndChange = state.onEndChange;
 	    var onIntervalDrag = state.onIntervalDrag;
-	    var _state$action = state.action;
-	    var intervalId = _state$action.intervalId;
-	    var side = _state$action.side;
-	    var timeBeforeDrag = _state$action.timeBeforeDrag;
-	    var initialCoords = _state$action.initialCoords;
-	    var movedSinceMouseDown = _state$action.movedSinceMouseDown;
+	    var _state$action3 = state.action;
+	    var intervalId = _state$action3.intervalId;
+	    var side = _state$action3.side;
+	    var timeBeforeDrag = _state$action3.timeBeforeDrag;
+	    var initialCoords = _state$action3.initialCoords;
+	    var movedSinceMouseDown = _state$action3.movedSinceMouseDown;
 
-	    var deltaPx = newCoords.clientX - initialCoords.x;
+	    var _ref = direction == 'horizontal' ? [initialCoords.x, newCoords.clientX] : [initialCoords.y, newCoords.clientY];
+
+	    var _ref2 = _slicedToArray(_ref, 2);
+
+	    var oldPos = _ref2[0];
+	    var newPos = _ref2[1];
+
+	    var deltaPx = newPos - oldPos;
 	    var newTime = timeBeforeDrag + max * deltaPx / width;
 
 	    if (side === "left") {
@@ -600,11 +949,7 @@
 	    }
 
 	    if (!movedSinceMouseDown) {
-	        var cursorName = ({
-	            left: "w-resize",
-	            right: "e-resize",
-	            whole: "move"
-	        })[side];
+	        var cursorName = getCursorName(direction, side);
 	        (0, _functionsGlobalCursor.setCursorToWholeDocument)(window.document, cursorName);
 
 	        var newDraggingAction = state.action.set("movedSinceMouseDown", true);
@@ -615,18 +960,155 @@
 	    }
 	}
 
-	function dragEnd(state, capturedMouseEvents) {
-	    var _state$action2 = state.action;
-	    var intervalId = _state$action2.intervalId;
-	    var movedSinceMouseDown = _state$action2.movedSinceMouseDown;
+	function processIntervalMouseEvent(state, input, env) {
+	    var action = state.action;
 	    var onIntervalClick = state.onIntervalClick;
+	    var onDragEnd = state.onDragEnd;
+	    var onLongPress = state.onLongPress;
 
-	    if (movedSinceMouseDown) {
-	        (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
+	    var newState = state;
+
+	    if (input.type === _events.INTERVAL_MOUSE_DOWN) {
+	        var intervalId = input.intervalId;
+	        var side = input.side;
+	        var initialCoords = input.initialCoords;
+	        var timeBeforeDrag = input.timeBeforeDrag;
+
+	        env.capturedMouseEvents.resume();
+	        newState = state.set("action", new _state.MouseDraggingAction({
+	            intervalId: intervalId,
+	            side: side,
+	            initialCoords: initialCoords,
+	            timeBeforeDrag: timeBeforeDrag,
+	            movedSinceMouseDown: false,
+	            capturedMouseEvents: env.capturedMouseEvents
+	        }));
+	    } else if (input.type === _events.GLOBAL_MOUSE_MOVE && action instanceof _state.MouseDraggingAction) {
+	        newState = mouse_drag(state, input);
+	    } else if (input.type === _events.GLOBAL_MOUSE_UP && action instanceof _state.MouseDraggingAction) {
+	        var intervalId = action.intervalId;
+	        var movedSinceMouseDown = action.movedSinceMouseDown;
+	        var capturedMouseEvents = action.capturedMouseEvents;
+
+	        if (!movedSinceMouseDown) {
+	            onIntervalClick(intervalId, null);
+	        } else {
+	            (0, _functionsGlobalCursor.unsetCursorToWholeDocument)(window.document);
+	            onDragEnd(intervalId);
+	        }
+	        capturedMouseEvents.pause();
+	        newState = state.set("action", null);
 	    }
 
-	    capturedMouseEvents.pause();
-	    var newState = state.set("action", null);
+	    return newState;
+	}
+
+	function touch_drag(state, touchEvent) {
+	    var max = state.max;
+	    var width = state.width;
+	    var direction = state.direction;
+	    var onStartChange = state.onStartChange;
+	    var onEndChange = state.onEndChange;
+	    var onIntervalDrag = state.onIntervalDrag;
+	    var touchMoveRadius = state.touchMoveRadius;
+	    var _state$action4 = state.action;
+	    var intervalId = _state$action4.intervalId;
+	    var side = _state$action4.side;
+	    var touchId = _state$action4.touchId;
+	    var timeBeforeDrag = _state$action4.timeBeforeDrag;
+	    var initialCoords = _state$action4.initialCoords;
+	    var movedSinceTouchStart = _state$action4.movedSinceTouchStart;
+
+	    if (touchEvent.touchId !== touchId) {
+	        // TODO unify where touchId is checked
+	        return state;
+	    }
+
+	    var _ref3 = direction == 'horizontal' ? [initialCoords.x, touchEvent.clientX] : [initialCoords.y, touchEvent.clientY];
+
+	    var _ref32 = _slicedToArray(_ref3, 2);
+
+	    var oldPos = _ref32[0];
+	    var newPos = _ref32[1];
+
+	    var deltaPx = newPos - oldPos;
+	    var newTime = timeBeforeDrag + max * deltaPx / width;
+
+	    var newState = state;
+
+	    if (!movedSinceTouchStart && computeDistance(initialCoords, touchEvent) > touchMoveRadius) {
+	        var newDraggingAction = state.action.set("movedSinceTouchStart", true);
+	        newState = state.set("action", newDraggingAction);
+	    }
+
+	    if (movedSinceTouchStart) {
+	        if (side === "left") {
+	            onStartChange(intervalId, newTime);
+	        } else if (side === "right") {
+	            onEndChange(intervalId, newTime);
+	        } else if (side === "whole") {
+	            onIntervalDrag(intervalId, newTime);
+	        }
+	    }
+
+	    return newState;
+	}
+
+	function processIntervalTouchEvent(state, input, stream) {
+	    var action = state.action;
+	    var onIntervalClick = state.onIntervalClick;
+	    var onIntervalTap = state.onIntervalTap;
+	    var onDragEnd = state.onDragEnd;
+	    var onLongPress = state.onLongPress;
+	    var onIntervalLongPress = state.onIntervalLongPress;
+
+	    var newState = state;
+
+	    if (input.type === _events.INTERVAL_TOUCH_START) {
+	        var intervalId = input.intervalId;
+	        var side = input.side;
+	        var initialCoords = input.initialCoords;
+	        var timeBeforeDrag = input.timeBeforeDrag;
+	        var touchId = input.touchId;
+
+	        var longPressTimeoutId = setTimeout(function () {
+	            stream.onNext({
+	                type: _events.INTERVAL_LONG_PRESS,
+	                touchId: touchId
+	            });
+	        }, state.longPressInterval);
+	        newState = state.set("action", new _state.TouchDraggingAction({
+	            intervalId: intervalId,
+	            side: side,
+	            touchId: touchId,
+	            longPressTimeoutId: longPressTimeoutId,
+	            t0: new Date(),
+	            initialCoords: initialCoords,
+	            timeBeforeDrag: timeBeforeDrag,
+	            movedSinceTouchStart: false
+	        }));
+	    } else if (action instanceof _state.TouchDraggingAction && input.type === _events.INTERVAL_TOUCH_MOVE) {
+	        newState = touch_drag(state, input);
+	    } else if (action instanceof _state.TouchDraggingAction && input.type === _events.INTERVAL_TOUCH_END) {
+	        var intervalId = action.intervalId;
+	        var touchId = action.touchId;
+	        var movedSinceTouchStart = action.movedSinceTouchStart;
+
+	        if (touchId === input.touchId) {
+	            newState = state.set("action", null);
+	            if (!movedSinceTouchStart) {
+	                onIntervalTap(intervalId, null);
+	            } else {
+	                onDragEnd(intervalId);
+	            }
+	        }
+	    } else if (action instanceof _state.TouchDraggingAction && input.type === _events.INTERVAL_LONG_PRESS) {
+	        if (action.touchId === input.touchId && !state.action.movedSinceTouchStart && state.onIntervalLongPress !== _functionsUtils.noop) {
+	            newState = state.set("action", null);
+	            onIntervalLongPress(action.intervalId);
+	        }
+	    }
+
 	    return newState;
 	}
 
@@ -634,59 +1116,76 @@
 	    var action = state.action;
 	    var onIntervalClick = state.onIntervalClick;
 	    var onDragEnd = state.onDragEnd;
-	    var capturedMouseEvents = environment.capturedMouseEvents;
+	    var onLongPress = state.onLongPress;
 
 	    var newState = state;
 
-	    if (input === _state.TERMINATION_MSG) {
-	        if (action && action instanceof _state.DraggingAction) {
-	            newState = dragEnd(state, capturedMouseEvents);
-	        }
+	    // SPECIAL INPUTS
+
+	    if (input.type === _events.TERMINATE) {
+	        newState = state.set("action", null);
 	        terminate();
-	    } else if (input.type === "bar-mousemove") {
-	        newState = state.set("action", new _state.PreviewAction({ x: input.x }));
-	    } else if (input.type === "bar-mouseleave") {
-	        if (action && action instanceof _state.PreviewAction) {
-	            newState = state.set("action", null);
-	        }
-	    } else if (input.type === "mousedown") {
-	        var intervalId = input.intervalId;
-	        var side = input.side;
-	        var initialCoords = input.initialCoords;
-	        var timeBeforeDrag = input.timeBeforeDrag;
-
-	        capturedMouseEvents.resume();
-	        newState = dragStart(state, intervalId, side, initialCoords, timeBeforeDrag);
-	    } else if (input.type === "mousemove") {
-	        if (action && action instanceof _state.DraggingAction) {
-	            newState = drag(state, input);
-	        }
-	    } else if (input.type === "mouseup") {
-	        if (action && action instanceof _state.DraggingAction) {
-	            var intervalId = action.intervalId;
-	            var movedSinceMouseDown = action.movedSinceMouseDown;
-
-	            if (!movedSinceMouseDown) {
-	                onIntervalClick(intervalId, null);
-	            } else {
-	                onDragEnd(intervalId);
-	            }
-	            newState = dragEnd(state, capturedMouseEvents);
-	        }
-	    } else if (input.type === "propchange") {
+	    } else if (input.type === _events.PROPERTY_CHANGE) {
 	        var newProps = input.newProps;
 
-	        if (action && action instanceof _state.DraggingAction) {
+	        if ((0, _state.isDraggingAction)(action)) {
 	            var intervalId = action.intervalId;
 
 	            var removedElements = (0, _functionsUtils.getRemovedIds)(state.intervals, newProps.intervals);
 	            if (~removedElements.indexOf(intervalId)) {
-	                newState = dragEnd(state, capturedMouseEvents);
+	                newState = state.set("action", null);
 	            }
 	        }
 	        newState = newState.merge(newProps);
+
+	        // BY INITIAL INPUT
+	    } else if (input.type === _events.BAR_TOUCH_START) {
+	            newState = processTimeBarTouchEvent(state, input, stream);
+	        } else if (input.type === _events.BAR_MOUSE_MOVE) {
+	            newState = processPreviewEvent(state, input);
+	        } else if (input.type === _events.INTERVAL_MOUSE_DOWN) {
+	            newState = processIntervalMouseEvent(state, input, environment);
+	        } else if (input.type === _events.INTERVAL_TOUCH_START) {
+	            newState = processIntervalTouchEvent(state, input, stream);
+
+	            // BY STATE
+	        } else if (state.action instanceof _state.FirstPressed || state.action instanceof _state.FirstReleased || state.action instanceof _state.SecondPressed) {
+	                newState = processTimeBarTouchEvent(state, input, stream);
+	            } else if (state.action instanceof _state.PreviewAction) {
+	                newState = processPreviewEvent(state, input);
+	            } else if (state.action instanceof _state.MouseDraggingAction) {
+	                newState = processIntervalMouseEvent(state, input, environment);
+	            } else if (state.action instanceof _state.TouchDraggingAction) {
+	                newState = processIntervalTouchEvent(state, input, stream);
+
+	                // ERROR CASES
+	            } else if (input.type === _events.BAR_TOUCH_END) {
+	                    /**
+	                     * residual touch
+	                     *
+	                     * this happens for example after a longpress
+	                     *
+	                     * it would be better to set a special state when
+	                     * we transit to the null action carrying the information
+	                     * that we will transit into the default state as soon as
+	                     * the touch ends
+	                     */
+	                    //console.log("residual touch");
+	                } else {
+	                        console.error("unexpected type of input; ignoring");
+	                    }
+
+	    if ((0, _events.isMouseEvent)(input.type)) {
+	        console.log("");
+	        console.log("GOT MOUSE EVENT!:");
+	        console.log("-----------------");
+	        console.log("input:");
+	        console.log(input);
+	        console.log("new state:");
+	        console.log(newState.toJS());
+	        console.log("");
 	    } else {
-	        console.error("unexpected type of input; ignoring");
+	        console.log(input.type);
 	    }
 
 	    return newState;
@@ -720,37 +1219,95 @@
 
 /***/ },
 /* 8 */
-/***/ function(module, exports, __webpack_require__) {
+/***/ function(module, exports) {
 
 	"use strict";
 
 	Object.defineProperty(exports, "__esModule", {
 	    value: true
 	});
-	exports.captureMouseEventsOnDomNode = captureMouseEventsOnDomNode;
 
-	var rx = __webpack_require__(3);
+	var _createClass = (function () { function defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } } return function (Constructor, protoProps, staticProps) { if (protoProps) defineProperties(Constructor.prototype, protoProps); if (staticProps) defineProperties(Constructor, staticProps); return Constructor; }; })();
 
-	__webpack_require__(9);
+	function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
 
-	/**
-	 * Returns an observable that captures and stops the propagation of all the mouseups and mousemoves on the passed domNode.
-	 */
+	var c = 0;
 
-	function captureMouseEventsOnDomNode(domNode) {
-	    var mouseUps = rx.DOM.fromEvent(domNode, 'mouseup', null, true);
-	    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true);
-	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves])["do"](function (e) {
-	        return e.stopPropagation();
-	    });
-	    return inputStreams;
-	}
+	var O1Map = (function () {
+	    function O1Map() {
+	        _classCallCheck(this, O1Map);
+
+	        // this will use es6 symbols in the future
+	        this.symbol = "__o1map_" + c++;
+	    }
+
+	    _createClass(O1Map, [{
+	        key: "get",
+	        value: function get(key) {
+	            return key[this.symbol];
+	        }
+	    }, {
+	        key: "set",
+	        value: function set(key, value) {
+	            key[this.symbol] = value;
+	            return this;
+	        }
+	    }]);
+
+	    return O1Map;
+	})();
+
+	exports.O1Map = O1Map;
 
 /***/ },
 /* 9 */
 /***/ function(module, exports) {
 
-	module.exports = require("rx-dom");
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
+	exports.isMouseEvent = isMouseEvent;
+	var TERMINATE = "<TERMINATE>";
+	exports.TERMINATE = TERMINATE;
+	var PROPERTY_CHANGE = "<PROPERTY-CHANGE>";
+
+	exports.PROPERTY_CHANGE = PROPERTY_CHANGE;
+	var BAR_TOUCH_START = "<BAR-TOUCH-START-EVENT>";
+	exports.BAR_TOUCH_START = BAR_TOUCH_START;
+	var BAR_TOUCH_END = "<BAR-TOUCH-END-EVENT>";
+	exports.BAR_TOUCH_END = BAR_TOUCH_END;
+	var BAR_LONG_PRESS = "<BAR-LONG-PRESS-EVENT>";
+	exports.BAR_LONG_PRESS = BAR_LONG_PRESS;
+	var BAR_SINGLE_TAP = "<BAR-SINGLE-TAP-EVENT>";
+
+	exports.BAR_SINGLE_TAP = BAR_SINGLE_TAP;
+	var BAR_MOUSE_MOVE = "<BAR-MOUSE-MOVE>";
+	exports.BAR_MOUSE_MOVE = BAR_MOUSE_MOVE;
+	var BAR_MOUSE_LEAVE = "<BAR-MOUSE-LEAVE>";
+
+	exports.BAR_MOUSE_LEAVE = BAR_MOUSE_LEAVE;
+	var INTERVAL_MOUSE_DOWN = "<INTERVAL-MOUSE-DOWN>";
+	exports.INTERVAL_MOUSE_DOWN = INTERVAL_MOUSE_DOWN;
+	var GLOBAL_MOUSE_MOVE = "<GLOBAL-MOUSE-MOVE>";
+	exports.GLOBAL_MOUSE_MOVE = GLOBAL_MOUSE_MOVE;
+	var GLOBAL_MOUSE_UP = "<GLOBAL-MOUSE-UP>";
+
+	exports.GLOBAL_MOUSE_UP = GLOBAL_MOUSE_UP;
+	var INTERVAL_TOUCH_START = "<INTERVAL-TOUCH-START>";
+	exports.INTERVAL_TOUCH_START = INTERVAL_TOUCH_START;
+	var INTERVAL_TOUCH_MOVE = "<INTERVAL-TOUCH-MOVE>";
+	exports.INTERVAL_TOUCH_MOVE = INTERVAL_TOUCH_MOVE;
+	var INTERVAL_TOUCH_END = "<INTERVAL-TOUCH-END>";
+	exports.INTERVAL_TOUCH_END = INTERVAL_TOUCH_END;
+	var INTERVAL_LONG_PRESS = "<INTERVAL-LONG-PRESS>";
+
+	exports.INTERVAL_LONG_PRESS = INTERVAL_LONG_PRESS;
+
+	function isMouseEvent(e) {
+	    return !! ~[BAR_MOUSE_MOVE, BAR_MOUSE_LEAVE, INTERVAL_MOUSE_DOWN, GLOBAL_MOUSE_MOVE, GLOBAL_MOUSE_UP].indexOf(e);
+	}
 
 /***/ },
 /* 10 */
@@ -761,9 +1318,60 @@
 	Object.defineProperty(exports, "__esModule", {
 	    value: true
 	});
+	exports.captureMouseEventsOnDomNode = captureMouseEventsOnDomNode;
+
+	var _events = __webpack_require__(9);
+
+	/**
+	 * Returns an observable that captures and stops the propagation of all the mouseups and mousemoves on the passed domNode.
+	 */
+
+	var rx = __webpack_require__(3);
+
+	__webpack_require__(11);
+
+	function captureMouseEventsOnDomNode(domNode) {
+	    var mouseUps = rx.DOM.fromEvent(domNode, 'mouseup', null, true).map(function (e) {
+	        e.preventDefault();
+	        e.stopPropagation();
+	        return {
+	            type: _events.GLOBAL_MOUSE_UP,
+	            clientX: e.clientX,
+	            clientY: e.clientY
+	        };
+	    });
+	    var mouseMoves = rx.DOM.fromEvent(domNode, 'mousemove', null, true).map(function (e) {
+	        e.preventDefault();
+	        e.stopPropagation();
+	        return {
+	            type: _events.GLOBAL_MOUSE_MOVE,
+	            clientX: e.clientX,
+	            clientY: e.clientY
+	        };
+	    });
+
+	    var inputStreams = rx.Observable.merge([mouseUps, mouseMoves]);
+	    return inputStreams;
+	}
+
+/***/ },
+/* 11 */
+/***/ function(module, exports) {
+
+	module.exports = require("rx-dom");
+
+/***/ },
+/* 12 */
+/***/ function(module, exports, __webpack_require__) {
+
+	"use strict";
+
+	Object.defineProperty(exports, "__esModule", {
+	    value: true
+	});
 	exports.defaultPreviewBoundsGenerator = defaultPreviewBoundsGenerator;
 
-	var React = __webpack_require__(11);
+	var React = __webpack_require__(13);
 
 	function defaultPreviewBoundsGenerator(startTime, max, intervals) {
 	    var intervalPreviewWidth = 60;
@@ -798,22 +1406,22 @@
 	}
 
 /***/ },
-/* 11 */
+/* 13 */
 /***/ function(module, exports) {
 
 	module.exports = require("react");
 
 /***/ },
-/* 12 */
+/* 14 */
 /***/ function(module, exports, __webpack_require__) {
 
 	// style-loader: Adds some css to the DOM by adding a <style> tag
 
 	// load the styles
-	var content = __webpack_require__(13);
+	var content = __webpack_require__(15);
 	if(typeof content === 'string') content = [[module.id, content, '']];
 	// add the styles to the DOM
-	var update = __webpack_require__(15)(content, {});
+	var update = __webpack_require__(17)(content, {});
 	if(content.locals) module.exports = content.locals;
 	// Hot Module Replacement
 	if(false) {
@@ -830,21 +1438,21 @@
 	}
 
 /***/ },
-/* 13 */
+/* 15 */
 /***/ function(module, exports, __webpack_require__) {
 
-	exports = module.exports = __webpack_require__(14)();
+	exports = module.exports = __webpack_require__(16)();
 	// imports
 
 
 	// module
-	exports.push([module.id, ".time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.new-interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  width: 30px;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  cursor: pointer;\n  font-weight: bold;\n}\n.interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-content {\n  cursor: default;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n", ""]);
+	exports.push([module.id, "/* VARIABLES */\n/* MIXINS */\n/* TIME-BAR */\n.time-bar {\n  position: relative;\n  background: #eeeeee;\n  display: inline-block;\n  box-sizing: border-box;\n  height: 30px;\n  width: 30px;\n  cursor: normal;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n/* NEW INTERVAL */\n.new-interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  cursor: pointer;\n  font-weight: bold;\n}\n.horizontal .new-interval {\n  height: 100%;\n  width: 30px;\n}\n.vertical .new-interval {\n  height: 30px;\n  width: 100%;\n}\n/* INTERVAL */\n.interval {\n  position: absolute;\n  display: inline-block;\n  text-align: center;\n  line-height: 30px;\n  box-sizing: border-box;\n  top: 0;\n  height: 100%;\n  width: 100%;\n  border: 2px solid #cccccc;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n  /* VERY LAGGY & CPU intensive\n    transition: @movement-duration left ease-out, @movement-duration width ease-out;\n    will-change: left, width; */\n}\n.interval-content {\n  cursor: default;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n/* HANDLES */\n.interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.horizontal .interval-handle {\n  position: absolute;\n  display: block;\n  box-sizing: border-box;\n  top: 0;\n  height: auto;\n  bottom: 0;\n  width: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.horizontal .interval-handle-left {\n  left: 0;\n  cursor: w-resize;\n  border-left: 2px solid #cccccc;\n}\n.horizontal .interval-handle-right {\n  right: 0;\n  cursor: e-resize;\n  border-right: 2px solid #cccccc;\n}\n.vertical .interval-handle {\n  left: 0;\n  width: auto;\n  right: 0;\n  height: 8px;\n  margin: -2px;\n  -moz-user-select: none;\n  -webkit-user-select: none;\n  -ms-user-select: none;\n  user-select: none;\n}\n.vertical .interval-handle-left {\n  top: 0;\n  cursor: n-resize;\n  border-top: 2px solid #cccccc;\n}\n.vertical .interval-handle-right {\n  bottom: 0;\n  cursor: s-resize;\n  border-bottom: 2px solid #cccccc;\n}\n", ""]);
 
 	// exports
 
 
 /***/ },
-/* 14 */
+/* 16 */
 /***/ function(module, exports) {
 
 	/*
@@ -900,7 +1508,7 @@
 
 
 /***/ },
-/* 15 */
+/* 17 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/*
@@ -1125,7 +1733,7 @@
 
 
 /***/ },
-/* 16 */
+/* 18 */
 /***/ function(module, exports) {
 
 	module.exports = require("angular");
