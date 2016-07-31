@@ -349,7 +349,7 @@ export function deltaFunction(state, input, stream, environment, terminate) {
         console.error("unexpected type of input; ignoring");
     }
 
-
+    /*
     if (isMouseEvent(input.type)) {
         console.log("");
         console.log("GOT MOUSE EVENT!:");
@@ -362,6 +362,7 @@ export function deltaFunction(state, input, stream, environment, terminate) {
     } else {
         console.log(input.type);
     }
+    */
 
     return newState;
 }

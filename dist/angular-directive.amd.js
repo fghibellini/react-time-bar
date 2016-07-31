@@ -1175,7 +1175,8 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	                        console.error("unexpected type of input; ignoring");
 	                    }
 
-	    if ((0, _events.isMouseEvent)(input.type)) {
+	    /*
+	    if (isMouseEvent(input.type)) {
 	        console.log("");
 	        console.log("GOT MOUSE EVENT!:");
 	        console.log("-----------------");
@@ -1187,6 +1188,7 @@ define("react-time-bar", ["rx","immutable","rx-dom","react","angular"], function
 	    } else {
 	        console.log(input.type);
 	    }
+	    */
 
 	    return newState;
 	}

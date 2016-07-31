@@ -58042,7 +58042,8 @@
 	                        console.error("unexpected type of input; ignoring");
 	                    }
 
-	    if ((0, _events.isMouseEvent)(input.type)) {
+	    /*
+	    if (isMouseEvent(input.type)) {
 	        console.log("");
 	        console.log("GOT MOUSE EVENT!:");
 	        console.log("-----------------");
@@ -58054,6 +58055,7 @@
 	    } else {
 	        console.log(input.type);
 	    }
+	    */
 
 	    return newState;
 	}
