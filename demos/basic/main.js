@@ -3,6 +3,7 @@ require("!style!css!less!./style.less");
 
 
 var React = require("react");
+var ReactDOM = require("react-dom");
 var _ = require("lodash");
 
 import { TimeBar } from '../../src/component';
@@ -165,7 +166,7 @@ function refresh() {
 
     window.document.getElementById("intervals").innerText = intervalsToString(intervals);
 
-    React.render(
+    ReactDOM.render(
         <TimeBar max={(18-8)*60}
                  width={800}
                  intervals={intervals}

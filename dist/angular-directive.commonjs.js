@@ -1173,7 +1173,7 @@
 	                     */
 	                    //console.log("residual touch");
 	                } else {
-	                        console.error("unexpected type of input; ignoring");
+	                        console.error('unexpected type of input ' + input.type + ' ignoring');
 	                    }
 
 	    /*
