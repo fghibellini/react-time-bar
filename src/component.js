@@ -3,6 +3,7 @@ require("!style!css!less!./styles.less");
 
 var rx = require("rx");
 var React = require("react");
+var ReactDOM = require("react-dom");
 
 import { mergeInputs, noop } from './functions/utils';
 import { TimeBarState, PreviewAction, TouchDraggingAction, intervalsToImmutable, propsToImmutable } from './state';
@@ -275,7 +276,7 @@ export function getTimeBarComponent(environmentArgs) {
             // THE TIME BAR ITSELF
 
             var barMouseMove = e => {
-                var barElement = React.findDOMNode(this);
+                var barElement = ReactDOM.findDOMNode(this);
                 if (e.target === barElement || e.target.className === "new-interval") {
                     var boundingRect = barElement.getBoundingClientRect();
                     var [page, bounding] = direction === 'horizontal' ? [e.pageX, boundingRect.left + window.scrollX] : [e.pageY, boundingRect.top + window.scrollY];
@@ -310,7 +311,7 @@ export function getTimeBarComponent(environmentArgs) {
                     case "touchend": type = BAR_TOUCH_END; break;
                 }
 
-                var barElement = React.findDOMNode(this);
+                var barElement = ReactDOM.findDOMNode(this);
                 var boundingRect = barElement.getBoundingClientRect();
                 var [page, bounding] = direction === 'horizontal' ? [touch.pageX, boundingRect.left + window.scrollX] : [touch.pageY, boundingRect.top + window.scrollY];
                 var offset = page - bounding;

@@ -15,6 +15,7 @@ module.exports = applyCommonConfig({
     },
     externals: {
         react: "React",
+        "react-dom": "ReactDOM",
         rx: "Rx",
         "rx-dom": "Rx.DOM",
         angular: "angular",

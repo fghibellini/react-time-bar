@@ -79,6 +79,7 @@
 
 	var rx = __webpack_require__(3);
 	var React = __webpack_require__(13);
+	var ReactDOM = __webpack_require__(18);
 
 	var NESTED_DELTAS_ERROR = "The delta function is not allowed to synchrously trigger another state transition! This is a bug in the time-bar component.";
 	var NO_CAPTURED_EVENTS_STREAM_ERROR = "The TimeBar component requires a pausable stream of mouse events!";
@@ -364,7 +365,7 @@
 	            // THE TIME BAR ITSELF
 
 	            var barMouseMove = function barMouseMove(e) {
-	                var barElement = React.findDOMNode(_this2);
+	                var barElement = ReactDOM.findDOMNode(_this2);
 	                if (e.target === barElement || e.target.className === "new-interval") {
 	                    var boundingRect = barElement.getBoundingClientRect();
 
@@ -408,7 +409,7 @@
 	                        type = _events.BAR_TOUCH_END;break;
 	                }
 
-	                var barElement = React.findDOMNode(_this2);
+	                var barElement = ReactDOM.findDOMNode(_this2);
 	                var boundingRect = barElement.getBoundingClientRect();
 
 	                var _ref3 = direction === 'horizontal' ? [touch.pageX, boundingRect.left + window.scrollX] : [touch.pageY, boundingRect.top + window.scrollY];
@@ -1654,6 +1655,12 @@
 			URL.revokeObjectURL(oldSrc);
 	}
 
+
+/***/ },
+/* 18 */
+/***/ function(module, exports) {
+
+	module.exports = require("react-dom");
 
 /***/ }
 /******/ ])));
